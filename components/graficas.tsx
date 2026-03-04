@@ -375,6 +375,7 @@ export function Graficas() {
   };
 
   const renderChart = () => {
+    // Renderiza el gráfico basado en el tipo seleccionado
     if (chartData.length === 0) return null;
 
     const isSingleMetric = selectedNumericColumns.length === 1;
