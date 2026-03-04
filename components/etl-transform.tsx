@@ -106,19 +106,25 @@ export function ETLTransform() {
     }
   };
 
-  const saveToHistory = (q: string, res: QueryResult) => {
-    const newHistory = [
-      {
-        id: `etl_${Date.now()}`,
-        query: q,
-        rows: res.rows,
-        columns: res.columns,
-        timestamp: new Date().toISOString(),
-        connectionId: selectedConnection,
-        isETL: true,
-      },
-      ...queryHistory,
-    ].slice(0, 50);
+  const saveToHistory = (q: string, res: QueryResult, allResults?: Record<string, QueryResult | null>) => {
+    const newHistoryEntry: any = {
+      id: `etl_${Date.now()}`,
+      query: q,
+      rows: res.rows,
+      columns: res.columns,
+      timestamp: new Date().toISOString(),
+      connectionId: selectedConnection,
+      connectionName: connections.find((c) => c.id === selectedConnection)?.name || 'Unknown',
+      isETL: true,
+    };
+
+    // Si hay múltiples DBs, guardar todos los resultados
+    if (allResults && Object.keys(allResults).length > 1) {
+      newHistoryEntry.multiDBResults = allResults;
+      newHistoryEntry.selectedConnections = selectedConnections;
+    }
+
+    const newHistory = [newHistoryEntry, ...queryHistory].slice(0, 50);
     
     setQueryHistory(newHistory);
     localStorage.setItem('etl_query_history', JSON.stringify(newHistory));
@@ -190,7 +196,7 @@ export function ETLTransform() {
       if (firstResult) {
         setResults(firstResult);
         setMultiDBResults(results);
-        saveToHistory(query.trim(), firstResult);
+        saveToHistory(query.trim(), firstResult, results);
       } else {
         setError('No se obtuvieron resultados de ninguna conexión');
       }
