@@ -465,15 +465,14 @@ export function ETLTransform() {
                 <Play className="w-4 h-4" />
                 {loading ? 'Ejecutando...' : 'Ejecutar'}
               </Button>
-              {results && Object.keys(multiDBResults).length > 0 && (
-                <Button
-                  onClick={() => setShowETLCharts(!showETLCharts)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  {showETLCharts ? 'Ocultar' : 'Gráfico ETL'}
-                </Button>
-              )}
+              <Button
+                onClick={() => setShowETLCharts(!showETLCharts)}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                disabled={!results}
+              >
+                <BarChart3 className="w-4 h-4" />
+                {showETLCharts ? 'Ocultar' : 'Gráfico ETL'}
+              </Button>
             </div>
 
             {/* Resultados */}
