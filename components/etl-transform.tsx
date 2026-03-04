@@ -4,7 +4,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Copy, AlertCircle, Plus, Trash2, ChevronDown, BarChart3 } from 'lucide-react';
-import { ETLCharts } from './etl-charts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 interface Connection {
   id: string;
@@ -657,13 +666,172 @@ export function ETLTransform() {
       )}
 
       {etlMode === 'grafico' && Object.keys(multiDBResults).length > 0 && (
-        <div className="w-full">
-          <ETLCharts
-            multiDBResults={multiDBResults}
-            columns={results?.columns || []}
-            labelColumn={results?.columns[0] || ''}
-            selectedConnections={selectedConnections}
-          />
+        <div className="w-full space-y-6">
+          {!results || (results.columns && results.columns.length === 0) ? (
+            <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+              <CardContent className="p-8">
+                <div className="flex flex-col items-center justify-center text-center space-y-3">
+                  <AlertCircle className="w-12 h-12 text-gray-500" />
+                  <div>
+                    <h3 className="text-gray-300 font-semibold text-lg">No hay datos disponibles</h3>
+                    <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL primero para ver gráficos</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Gráfico Comparativo lado a lado */}
+              <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white">Comparación de Bases de Datos</CardTitle>
+                  <p className="text-gray-400 text-xs mt-2">
+                    Comparación directa: {Object.keys(multiDBResults).join(' vs ')}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
+                    <ResponsiveContainer width="100%" height={500}>
+                      {(() => {
+                        // Combinar datos de múltiples DBs para comparación lado a lado
+                        const labelCol = results?.columns[0] || 'name';
+                        const numericCols = results?.columns.filter((col: string) => {
+                          const val = Object.values(multiDBResults)[0]?.[0]?.[col];
+                          return val !== null && val !== undefined && !isNaN(Number(val));
+                        }) || [];
+
+                        if (numericCols.length === 0) return null;
+
+                        const unifiedData: Record<string, any> = {};
+
+                        // Iterar sobre cada DB
+                        Object.entries(multiDBResults).forEach(([dbName, dbResult]) => {
+                          if (Array.isArray(dbResult)) {
+                            dbResult.forEach((row: any) => {
+                              const label = String(row[labelCol] ?? 'N/A');
+                              if (!unifiedData[label]) {
+                                unifiedData[label] = { name: label };
+                              }
+                              numericCols.forEach((col: string) => {
+                                const value = Number(row[col]) || 0;
+                                unifiedData[label][`${col}_${dbName}`] = value;
+                              });
+                            });
+                          }
+                        });
+
+                        const chartData = Object.values(unifiedData);
+                        const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+                        return (
+                          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 150 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis
+                              dataKey="name"
+                              stroke="#9CA3AF"
+                              angle={-45}
+                              textAnchor="end"
+                              height={150}
+                              interval={0}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <YAxis stroke="#9CA3AF" width={60} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
+                              formatter={(value: any) => value.toLocaleString('es-ES')}
+                            />
+                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                            {numericCols.map((col: string, idx: number) =>
+                              Object.keys(multiDBResults).map((dbName, dbIdx) => (
+                                <Bar
+                                  key={`${col}_${dbName}`}
+                                  dataKey={`${col}_${dbName}`}
+                                  name={`${col} (${dbName})`}
+                                  fill={COLORS[(idx * Object.keys(multiDBResults).length + dbIdx) % COLORS.length]}
+                                  radius={[8, 8, 0, 0]}
+                                />
+                              ))
+                            )}
+                          </BarChart>
+                        );
+                      })()}
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tabla detallada de comparación */}
+              <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white">Tabla Detallada</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th className="bg-slate-700 p-2 text-left text-gray-300">{results?.columns[0] || 'Elemento'}</th>
+                          {Object.keys(multiDBResults).map((dbName) => (
+                            <th
+                              key={dbName}
+                              colSpan={Math.max(1, (results?.columns.length || 1) - 1)}
+                              className="bg-slate-700 p-2 text-center text-gray-300"
+                            >
+                              {dbName}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const labelCol = results?.columns[0] || 'name';
+                          const labelMap: Record<string, any> = {};
+
+                          Object.entries(multiDBResults).forEach(([dbName, dbResult]) => {
+                            if (Array.isArray(dbResult)) {
+                              dbResult.forEach((row: any) => {
+                                const label = String(row[labelCol] ?? 'N/A');
+                                if (!labelMap[label]) labelMap[label] = { name: label };
+                                labelMap[label][dbName] = row;
+                              });
+                            }
+                          });
+
+                          return Object.values(labelMap).map((item: any, idx: number) => (
+                            <tr key={idx}>
+                              <td className="bg-slate-800 p-2 text-gray-300 border border-slate-700 font-semibold">
+                                {item.name}
+                              </td>
+                              {Object.keys(multiDBResults).map((dbName) => (
+                                <td key={dbName} className="bg-slate-800 p-2 border border-slate-700">
+                                  {item[dbName] ? (
+                                    <div className="space-y-1">
+                                      {results?.columns.slice(1).map((col: string) => (
+                                        <div key={col} className="text-gray-300">
+                                          <span className="text-gray-400">{col}:</span>{' '}
+                                          <span className="text-gray-200">
+                                            {typeof item[dbName][col] === 'number'
+                                              ? item[dbName][col].toLocaleString('es-ES')
+                                              : item[dbName][col]}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500">-</span>
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       )}
     </div>
