@@ -375,6 +375,12 @@ export function Graficas() {
   };
 
   const renderChart = () => {
+    if (chartData.length === 0) return null;
+
+    const isSingleMetric = selectedNumericColumns.length === 1;
+    const metricKey = selectedNumericColumns[0] || 'value';
+
+    switch (chartType) {
       case 'bar':
         return isSingleMetric ? (
           <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
