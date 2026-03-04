@@ -11,46 +11,42 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
+interface ETLQuery {
+  id: string;
+  query: string;
+  rows: any[];
+  columns: string[];
+  timestamp: string;
+  connectionId: string;
+  connectionName: string;
+  isETL: boolean;
+  multiDBResults: Record<string, any>;
+  selectedConnections: string[];
+}
+
 export default function GraficasVsPage() {
-  const [queries, setQueries] = useState<any[]>([]);
+  const [queries, setQueries] = useState<ETLQuery[]>([]);
   const [selectedQueryId, setSelectedQueryId] = useState<string | null>(null);
   const [chartData, setChartData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadQueries = () => {
-    try {
-      const saved = localStorage.getItem('etl_query_history');
-      if (saved) {
+  useEffect(() => {
+    const saved = localStorage.getItem('etl_query_history');
+    if (saved) {
+      try {
         const parsed = JSON.parse(saved);
         const etlQueries = parsed.filter(
           (q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0
         );
         setQueries(etlQueries);
-        if (etlQueries.length > 0 && !selectedQueryId) {
+        if (etlQueries.length > 0) {
           setSelectedQueryId(etlQueries[0].id);
         }
+      } catch (error) {
+        console.error('Error parsing queries:', error);
       }
-      setError(null);
-    } catch (err) {
-      setError('Error al cargar las consultas guardadas');
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const clearHistory = () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial de ETL?')) {
-      localStorage.removeItem('etl_query_history');
-      setQueries([]);
-      setSelectedQueryId(null);
-      setChartData(null);
-      setError(null);
-    }
-  };
-
-  useEffect(() => {
-    loadQueries();
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -59,7 +55,7 @@ export default function GraficasVsPage() {
       return;
     }
 
-    const selected = queries.find((q) => q.id === selectedQueryId);
+    const selected = queries.find((q) => q.id === selectedQueryId) as ETLQuery | undefined;
     if (!selected || !selected.multiDBResults) {
       setChartData(null);
       return;
@@ -120,11 +116,38 @@ export default function GraficasVsPage() {
         labels: finalData.map((item) => item.name),
         datasets,
       });
-    } catch (err) {
-      setError('Error al generar el gráfico');
+    } catch (error) {
+      console.error('Error generating chart:', error);
       setChartData(null);
     }
   }, [selectedQueryId, queries]);
+
+  const handleReload = () => {
+    const saved = localStorage.getItem('etl_query_history');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const etlQueries = parsed.filter(
+          (q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0
+        );
+        setQueries(etlQueries);
+        if (etlQueries.length > 0) {
+          setSelectedQueryId(etlQueries[0].id);
+        }
+      } catch (error) {
+        console.error('Error reloading:', error);
+      }
+    }
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial?')) {
+      localStorage.removeItem('etl_query_history');
+      setQueries([]);
+      setSelectedQueryId(null);
+      setChartData(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -141,27 +164,12 @@ export default function GraficasVsPage() {
         <p className="text-gray-400 mt-2">Visualiza comparaciones lado a lado entre bases de datos</p>
       </div>
 
-      {error && (
-        <Card className="bg-red-900/20 border-red-700">
-          <CardContent className="p-4 flex items-center gap-2 text-red-300">
-            <AlertCircle className="w-5 h-5" />
-            {error}
-          </CardContent>
-        </Card>
-      )}
-
       <div className="flex gap-2">
-        <Button
-          onClick={loadQueries}
-          className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-        >
+        <Button onClick={handleReload} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
           <RotateCcw className="w-4 h-4" />
           Recargar
         </Button>
-        <Button
-          onClick={clearHistory}
-          className="bg-red-600 hover:bg-red-700 text-white gap-2"
-        >
+        <Button onClick={handleClearHistory} className="bg-red-600 hover:bg-red-700 text-white gap-2">
           <Trash2 className="w-4 h-4" />
           Limpiar Historial
         </Button>
@@ -174,7 +182,7 @@ export default function GraficasVsPage() {
               <AlertCircle className="w-12 h-12 text-gray-500" />
               <div>
                 <h3 className="text-gray-300 font-semibold text-lg">No hay consultas guardadas</h3>
-                <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL primero para ver gráficos comparativos</p>
+                <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL para ver gráficos comparativos</p>
               </div>
             </div>
           </CardContent>
