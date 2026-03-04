@@ -116,15 +116,6 @@ export default function GraficasVsPage() {
     });
   }, [selectedQueryId, queries]);
 
-  const clearHistory = () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial de ETL? Esta acción no se puede deshacer.')) {
-      localStorage.removeItem('etl_query_history');
-      setQueries([]);
-      setSelectedQueryId(null);
-      setChartData(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
