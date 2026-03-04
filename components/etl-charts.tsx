@@ -265,6 +265,8 @@ export function ETLCharts({
       </Card>
     );
   }
+
+  return (
     <div className="space-y-6">
       <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
         <CardHeader>
