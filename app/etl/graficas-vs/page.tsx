@@ -66,9 +66,9 @@ export default function GraficasVsPage() {
       const dbNames = Object.keys(selected.multiDBResults);
 
       const numericCols = selected.columns?.filter((col: string) => {
-        const firstDb = selected.multiDBResults[dbNames[0]];
-        if (Array.isArray(firstDb) && firstDb.length > 0) {
-          const val = firstDb[0][col];
+        const firstDbData = selected.multiDBResults[dbNames[0]];
+        if (firstDbData && firstDbData.rows && firstDbData.rows.length > 0) {
+          const val = firstDbData.rows[0][col];
           return val !== null && val !== undefined && !isNaN(Number(val));
         }
         return false;
@@ -81,8 +81,8 @@ export default function GraficasVsPage() {
 
       const unifiedData: Record<string, any> = {};
       Object.entries(selected.multiDBResults).forEach(([dbName, dbResult]: [string, any]) => {
-        if (Array.isArray(dbResult)) {
-          dbResult.forEach((row: any) => {
+        if (dbResult && dbResult.rows && Array.isArray(dbResult.rows)) {
+          dbResult.rows.forEach((row: any) => {
             const label = String(row[labelCol] ?? 'N/A');
             if (!unifiedData[label]) {
               unifiedData[label] = { name: label };
