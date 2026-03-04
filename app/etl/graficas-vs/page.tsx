@@ -15,11 +15,7 @@ export default function GraficasVsPage() {
   const [chartData, setChartData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Cargar consultas ETL guardadas
-  useEffect(() => {
-    loadQueries();
-  }, []);
-
+  // Definir loadQueries antes de usarla
   const loadQueries = () => {
     const savedQueries = localStorage.getItem('etl_query_history');
     if (savedQueries) {
@@ -36,6 +32,21 @@ export default function GraficasVsPage() {
     }
     setLoading(false);
   };
+
+  // Definir clearHistory antes de usarla
+  const clearHistory = () => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial de ETL? Esta acción no se puede deshacer.')) {
+      localStorage.removeItem('etl_query_history');
+      setQueries([]);
+      setSelectedQueryId(null);
+      setChartData(null);
+    }
+  };
+
+  // Cargar consultas ETL guardadas
+  useEffect(() => {
+    loadQueries();
+  }, []);
 
   // Procesar datos cuando se selecciona una consulta
   useEffect(() => {
