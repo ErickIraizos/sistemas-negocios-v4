@@ -56,6 +56,9 @@ export function Graficas() {
   const [selectedNumericColumns, setSelectedNumericColumns] = useState<string[]>([]);
   const [labelColumn, setLabelColumn] = useState<string>('');
   const [comparisonDBs, setComparisonDBs] = useState<Record<string, any[]>>({});
+  const [selectedDBsForComparison, setSelectedDBsForComparison] = useState<string[]>([]);
+  const [showComparisonView, setShowComparisonView] = useState(false);
+  const [multiDBData, setMultiDBData] = useState<Record<string, any[]>>({}); // Datos para cada DB
 
   useEffect(() => {
     loadHistory();
@@ -120,6 +123,8 @@ export function Graficas() {
 
   const generateChartFromQuery = (query: QueryRecord) => {
     setError(null);
+    setComparisonDBs({});
+    setSelectedDBsForComparison([]);
     
     if (query.rows.length === 0) {
       setError('La consulta no devolvió resultados');
@@ -172,6 +177,31 @@ export function Graficas() {
     // Por defecto, seleccionar la primera columna numérica
     const defaultCols = [numCols[0]];
     setSelectedNumericColumns(defaultCols);
+    
+    // Detectar si hay múltiples DBs en el historial ETL
+    const dbsMap: Record<string, any[]> = {};
+    const etlHistory = JSON.parse(localStorage.getItem('etl_query_history') || '[]');
+    
+    // Agrupar resultados por nombre de DB si es disponible
+    if (Array.isArray(etlHistory)) {
+      etlHistory.forEach((item: any) => {
+        if (item.connectionName) {
+          if (!dbsMap[item.connectionName]) {
+            dbsMap[item.connectionName] = [];
+          }
+          dbsMap[item.connectionName] = item.rows || [];
+        }
+      });
+    }
+
+    // Si hay múltiples DBs, guardarlas para comparación
+    if (Object.keys(dbsMap).length > 1) {
+      setComparisonDBs(dbsMap);
+      setSelectedDBsForComparison(Object.keys(dbsMap).slice(0, 2)); // Seleccionar las 2 primeras por defecto
+    } else if (Object.keys(dbsMap).length === 1) {
+      // Si hay una sola DB registrada, aún así guardarla
+      setComparisonDBs(dbsMap);
+    }
     
     generateChartData(query, textCol, defaultCols);
   };
@@ -241,24 +271,24 @@ export function Graficas() {
             <Bar dataKey={metricKey} fill="#3B82F6" radius={[0, 8, 8, 0]} />
           </BarChart>
         ) : (
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={100} />
-            <YAxis stroke="#9CA3AF" />
+            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
+            <YAxis stroke="#9CA3AF" width={60} label={{ value: 'Valor', angle: -90, position: 'insideLeft' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
-            <Legend />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
             {selectedNumericColumns.map((col, idx) => (
-              <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+              <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} barCategoryGap="15%" />
             ))}
           </BarChart>
         );
 
       case 'stacked-bar':
         return (
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
-            <YAxis stroke="#9CA3AF" />
+            <YAxis stroke="#9CA3AF" width={60} label={{ value: 'Valor Acumulado', angle: -90, position: 'insideLeft' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
             <Legend wrapperStyle={{ paddingTop: '20px' }} />
             {selectedNumericColumns.map((col, idx) => (
@@ -269,14 +299,14 @@ export function Graficas() {
 
       case 'grouped-bar':
         return (
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
-            <YAxis stroke="#9CA3AF" />
+            <YAxis stroke="#9CA3AF" width={60} label={{ value: 'Valor', angle: -90, position: 'insideLeft' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
             <Legend wrapperStyle={{ paddingTop: '20px' }} />
             {selectedNumericColumns.map((col, idx) => (
-              <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+              <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} barCategoryGap="15%" />
             ))}
           </BarChart>
         );
@@ -466,6 +496,74 @@ export function Graficas() {
           </Card>
         </div>
 
+        {/* Selector de Múltiples DBs para Comparación */}
+        {selectedQuery && comparisonDBs && Object.keys(comparisonDBs).length > 1 && (
+          <div className="lg:col-span-3">
+            <Card className="bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border border-cyan-700/50">
+              <CardHeader>
+                <CardTitle className="text-cyan-200 text-base">Comparar Bases de Datos / Sucursales</CardTitle>
+                <p className="text-cyan-100/70 text-xs mt-2">Selecciona múltiples DBs para visualizar datos separados o unificados</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-cyan-200 font-semibold block">Selecciona Bases de Datos:</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(comparisonDBs).map((dbName) => (
+                      <button
+                        key={dbName}
+                        onClick={() => {
+                          const newSelection = selectedDBsForComparison.includes(dbName)
+                            ? selectedDBsForComparison.filter((d) => d !== dbName)
+                            : [...selectedDBsForComparison, dbName];
+                          setSelectedDBsForComparison(newSelection);
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedDBsForComparison.includes(dbName)
+                            ? 'bg-cyan-600 text-white border border-cyan-400'
+                            : 'bg-cyan-900/40 text-cyan-200 hover:bg-cyan-900/60 border border-cyan-700'
+                        }`}
+                      >
+                        {dbName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedDBsForComparison.length > 0 && (
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => setShowComparisonView(false)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        !showComparisonView
+                          ? 'bg-blue-600 text-white border border-blue-400'
+                          : 'bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600'
+                      }`}
+                    >
+                      Gráficas Separadas
+                    </button>
+                    <button
+                      onClick={() => setShowComparisonView(true)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        showComparisonView
+                          ? 'bg-blue-600 text-white border border-blue-400'
+                          : 'bg-slate-700 text-gray-300 hover:bg-slate-600 border border-slate-600'
+                      }`}
+                    >
+                      Gráfica Unificada
+                    </button>
+                  </div>
+                )}
+
+                {selectedDBsForComparison.length > 0 && (
+                  <p className="text-xs text-cyan-400 mt-2">
+                    {selectedDBsForComparison.length} base(s) de datos seleccionada(s) para comparación
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Configuración de Gráfica */}
         {selectedQuery && (
           <div className="lg:col-span-3 space-y-4">
@@ -582,12 +680,95 @@ export function Graficas() {
             </CardHeader>
             <CardContent>
               <div ref={chartRef} className="bg-slate-900 p-6 rounded-lg">
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={500}>
                   {renderChart()}
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
+
+          {/* Gráficas Separadas por DB (Comparación Multi-DB) */}
+          {selectedDBsForComparison.length > 1 && !showComparisonView && (
+            <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Comparación de Bases de Datos - Gráficas Separadas</CardTitle>
+                <p className="text-gray-400 text-xs mt-2">Visualización individual de cada base de datos para comparar resultados</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  {selectedDBsForComparison.map((dbName) => {
+                    const dbRows = comparisonDBs[dbName] || [];
+                    if (dbRows.length === 0) return null;
+
+                    // Transformar datos de esta DB
+                    let dbChartData: any[] = [];
+                    if (selectedNumericColumns.length === 1) {
+                      dbChartData = dbRows.map((row) => ({
+                        name: String(row[labelColumn] ?? 'Sin valor'),
+                        value: parseNumericValue(row[selectedNumericColumns[0]]),
+                      }));
+                    } else {
+                      dbChartData = dbRows.map((row) => {
+                        const obj: any = { name: String(row[labelColumn] ?? 'Sin valor') };
+                        selectedNumericColumns.forEach((col) => {
+                          obj[col] = parseNumericValue(row[col]);
+                        });
+                        return obj;
+                      });
+                    }
+
+                    return (
+                      <div key={dbName} className="border-t border-slate-700 pt-6">
+                        <h4 className="text-lg font-bold text-blue-300 mb-4">📊 {dbName}</h4>
+                        <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
+                          <ResponsiveContainer width="100%" height={400}>
+                            {dbChartData.length > 0 ? (
+                              <BarChart data={dbChartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
+                                <YAxis stroke="#9CA3AF" width={60} />
+                                <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+                                <Legend />
+                                {selectedNumericColumns.map((col, idx) => (
+                                  <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+                                ))}
+                              </BarChart>
+                            ) : null}
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {generateKPIs(dbChartData, selectedNumericColumns).slice(0, 4).map((kpi, idx) => (
+                            <div key={idx} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                              <p className="text-gray-400 text-xs">{kpi.label}</p>
+                              <p className={`text-lg font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Gráfica Unificada (Comparación Multi-DB) */}
+          {selectedDBsForComparison.length > 1 && showComparisonView && (
+            <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Comparación de Bases de Datos - Gráfica Unificada</CardTitle>
+                <p className="text-gray-400 text-xs mt-2">Visualización combinada para identificar diferencias entre sucursales</p>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
+                  <p className="text-gray-400 text-sm mb-4">Gráfica unificada mostrando datos de: {selectedDBsForComparison.join(', ')}</p>
+                  <ResponsiveContainer width="100%" height={500}>
+                    {renderChart()}
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Informe Detallado para Toma de Decisiones */}
           <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
