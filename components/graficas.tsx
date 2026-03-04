@@ -196,6 +196,7 @@ export function Graficas() {
 
     // Si hay múltiples DBs, guardarlas para comparación
     if (Object.keys(dbsMap).length > 1) {
+      console.log('[v0] DBs detectadas:', Object.keys(dbsMap));
       setComparisonDBs(dbsMap);
       setSelectedDBsForComparison(Object.keys(dbsMap).slice(0, 2)); // Seleccionar las 2 primeras por defecto
     } else if (Object.keys(dbsMap).length === 1) {
@@ -373,7 +374,52 @@ export function Graficas() {
     );
   };
 
-  const renderChart = () => {
+  const generateUnifiedChartData = (labelCol: string, numCols: string[]): any[] => {
+    if (selectedDBsForComparison.length < 2) return chartData;
+
+    // Combinar datos de múltiples DBs
+    const unifiedData: Record<string, any> = {};
+
+    // Iterar sobre cada DB seleccionada
+    selectedDBsForComparison.forEach((dbName) => {
+      const dbRows = comparisonDBs[dbName] || [];
+      
+      dbRows.forEach((row: any) => {
+        const label = String(row[labelCol] ?? 'N/A');
+        
+        if (!unifiedData[label]) {
+          unifiedData[label] = { name: label };
+        }
+
+        // Para cada columna numérica, guardar el valor con el nombre de la DB
+        numCols.forEach((col) => {
+          const value = parseNumericValue(row[col]);
+          // Crear una clave única: "columna_DB"
+          const key = `${col}_${dbName}`;
+          unifiedData[label][key] = value;
+        });
+      });
+    });
+
+    return Object.values(unifiedData);
+  };
+
+  const generateUnifiedChartConfig = (numCols: string[]) => {
+    // Generar configuración de barras para cada combinación de columna + DB
+    const bars: Array<{ column: string; db: string; color: string }> = [];
+    
+    selectedDBsForComparison.forEach((dbName, dbIdx) => {
+      numCols.forEach((col, colIdx) => {
+        bars.push({
+          column: col,
+          db: dbName,
+          color: COLORS[(dbIdx * numCols.length + colIdx) % COLORS.length],
+        });
+      });
+    });
+
+    return bars;
+  };
     // Renderiza el gráfico basado en el tipo seleccionado
     if (chartData.length === 0) return null;
 
@@ -888,19 +934,100 @@ export function Graficas() {
             </Card>
           )}
 
-          {/* Gráfica Unificada (Comparación Multi-DB) */}
+          {/* Gráfica Unificada (Comparación Multi-DB) - Lado a Lado */}
           {selectedDBsForComparison.length > 1 && showComparisonView && (
             <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-white">Comparación de Bases de Datos - Gráfica Unificada</CardTitle>
-                <p className="text-gray-400 text-xs mt-2">Visualización combinada para identificar diferencias entre sucursales</p>
+                <CardTitle className="text-white">Comparación Lado a Lado - Bases de Datos</CardTitle>
+                <p className="text-gray-400 text-xs mt-2">
+                  Visualización comparativa: {selectedDBsForComparison.join(' vs ')}
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
-                  <p className="text-gray-400 text-sm mb-4">Gráfica unificada mostrando datos de: {selectedDBsForComparison.join(', ')}</p>
                   <ResponsiveContainer width="100%" height={500}>
-                    {renderChart()}
+                    {(() => {
+                      const unifiedData = generateUnifiedChartData(labelColumn, selectedNumericColumns);
+                      const barConfig = generateUnifiedChartConfig(selectedNumericColumns);
+
+                      return (
+                        <BarChart data={unifiedData} margin={{ top: 20, right: 30, left: 80, bottom: 150 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis 
+                            dataKey="name" 
+                            stroke="#9CA3AF" 
+                            angle={-45} 
+                            textAnchor="end" 
+                            height={150} 
+                            interval={0}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis stroke="#9CA3AF" width={60} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }}
+                            formatter={(value: any) => value.toLocaleString('es-ES')}
+                            labelFormatter={(label: any) => `${label}`}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                          {barConfig.map((config, idx) => (
+                            <Bar 
+                              key={`${config.column}_${config.db}`}
+                              dataKey={`${config.column}_${config.db}`}
+                              name={`${config.column} (${config.db})`}
+                              fill={config.color}
+                              radius={[8, 8, 0, 0]}
+                            />
+                          ))}
+                        </BarChart>
+                      );
+                    })()}
                   </ResponsiveContainer>
+                </div>
+
+                {/* Tabla de comparación detallada */}
+                <div className="mt-6 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className="bg-slate-700 p-2 text-left text-gray-300">Elemento</th>
+                        {selectedDBsForComparison.map((dbName) => (
+                          <th key={dbName} colSpan={selectedNumericColumns.length} className="bg-slate-700 p-2 text-center text-gray-300">
+                            {dbName}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr>
+                        <th className="bg-slate-700 p-2 text-left text-gray-400"></th>
+                        {selectedDBsForComparison.map((dbName) =>
+                          selectedNumericColumns.map((col) => (
+                            <th key={`${col}_${dbName}`} className="bg-slate-700 p-2 text-center text-gray-400">
+                              {col}
+                            </th>
+                          ))
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {generateUnifiedChartData(labelColumn, selectedNumericColumns).map((row, idx) => (
+                        <tr key={idx}>
+                          <td className="bg-slate-800 p-2 text-gray-300 border border-slate-700 font-semibold">{row.name}</td>
+                          {selectedDBsForComparison.map((dbName) =>
+                            selectedNumericColumns.map((col) => {
+                              const value = row[`${col}_${dbName}`] ?? '-';
+                              return (
+                                <td 
+                                  key={`${col}_${dbName}`}
+                                  className="bg-slate-800 p-2 text-center text-gray-300 border border-slate-700"
+                                >
+                                  {typeof value === 'number' ? value.toLocaleString('es-ES') : value}
+                                </td>
+                              );
+                            })
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
