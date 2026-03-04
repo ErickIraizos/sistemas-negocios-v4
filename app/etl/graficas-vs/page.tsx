@@ -9,182 +9,133 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
-
-interface ETLQuery {
-  id: string;
-  query: string;
-  rows: any[];
-  columns: string[];
-  timestamp: string;
-  connectionId: string;
-  connectionName: string;
-  isETL: boolean;
-  multiDBResults: Record<string, any>;
-  selectedConnections: string[];
-}
-
 export default function GraficasVsPage() {
-  const [queries, setQueries] = useState<ETLQuery[]>([]);
-  const [selectedQueryId, setSelectedQueryId] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<any>(null);
+  const [queries, setQueries] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chart, setChart] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('etl_query_history');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const etlQueries = parsed.filter(
-          (q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0
-        );
-        setQueries(etlQueries);
-        if (etlQueries.length > 0) {
-          setSelectedQueryId(etlQueries[0].id);
+  const loadData = () => {
+    try {
+      const saved = localStorage.getItem('etl_query_history');
+      if (saved) {
+        const data = JSON.parse(saved).filter((q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0);
+        setQueries(data);
+        if (data.length > 0 && !selectedId) {
+          setSelectedId(data[0].id);
         }
-      } catch (error) {
-        console.error('Error parsing queries:', error);
       }
+    } catch (e) {
+      console.error('Error loading:', e);
     }
     setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   useEffect(() => {
-    if (!selectedQueryId || queries.length === 0) {
-      setChartData(null);
+    if (!selectedId || !queries.length) {
+      setChart(null);
       return;
     }
 
-    const selected = queries.find((q) => q.id === selectedQueryId) as ETLQuery | undefined;
-    if (!selected || !selected.multiDBResults) {
-      setChartData(null);
+    const q = queries.find(x => x.id === selectedId);
+    if (!q || !q.multiDBResults) {
+      setChart(null);
       return;
     }
 
     try {
-      const labelCol = selected.columns?.[0] || 'name';
-      const dbNames = Object.keys(selected.multiDBResults);
-
-      const numericCols = selected.columns?.filter((col: string) => {
-        const firstDbData = selected.multiDBResults[dbNames[0]];
-        if (firstDbData && firstDbData.rows && firstDbData.rows.length > 0) {
-          const val = firstDbData.rows[0][col];
-          return val !== null && val !== undefined && !isNaN(Number(val));
+      const col1 = q.columns?.[0] || 'name';
+      const dbs = Object.keys(q.multiDBResults);
+      const numCols = q.columns?.filter((c: string) => {
+        const db = q.multiDBResults[dbs[0]];
+        if (db?.rows?.[0]) {
+          const v = db.rows[0][c];
+          return v !== null && !isNaN(Number(v));
         }
         return false;
       }) || [];
 
-      if (numericCols.length === 0) {
-        setChartData(null);
+      if (!numCols.length) {
+        setChart(null);
         return;
       }
 
-      const unifiedData: Record<string, any> = {};
-      Object.entries(selected.multiDBResults).forEach(([dbName, dbResult]: [string, any]) => {
-        if (dbResult && dbResult.rows && Array.isArray(dbResult.rows)) {
-          dbResult.rows.forEach((row: any) => {
-            const label = String(row[labelCol] ?? 'N/A');
-            if (!unifiedData[label]) {
-              unifiedData[label] = { name: label };
-            }
-            numericCols.forEach((col: string) => {
-              const value = Number(row[col]) || 0;
-              unifiedData[label][`${col}_${dbName}`] = value;
+      const map: Record<string, any> = {};
+      Object.entries(q.multiDBResults).forEach(([db, res]: [string, any]) => {
+        if (res?.rows) {
+          res.rows.forEach((row: any) => {
+            const label = String(row[col1] ?? 'N/A');
+            if (!map[label]) map[label] = { name: label };
+            numCols.forEach((c: string) => {
+              map[label][`${c}_${db}`] = Number(row[c]) || 0;
             });
           });
         }
       });
 
-      const finalData = Object.values(unifiedData);
-      if (finalData.length === 0) {
-        setChartData(null);
+      const items = Object.values(map);
+      if (!items.length) {
+        setChart(null);
         return;
       }
 
-      const datasets = numericCols.flatMap((col: string, colIdx: number) =>
-        dbNames.map((dbName, dbIdx) => ({
-          label: `${col} (${dbName})`,
-          data: finalData.map((item) => item[`${col}_${dbName}`] || 0),
-          backgroundColor: COLORS[(colIdx * dbNames.length + dbIdx) % COLORS.length],
-          borderColor: COLORS[(colIdx * dbNames.length + dbIdx) % COLORS.length],
-          borderWidth: 1,
-          borderRadius: 4,
+      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+      const sets = numCols.flatMap((c: string, i: number) =>
+        dbs.map((d, j) => ({
+          label: `${c} (${d})`,
+          data: items.map(x => x[`${c}_${d}`] || 0),
+          backgroundColor: colors[(i * dbs.length + j) % colors.length],
+          borderWidth: 0,
         }))
       );
 
-      setChartData({
-        labels: finalData.map((item) => item.name),
-        datasets,
+      setChart({
+        labels: items.map(x => x.name),
+        datasets: sets,
       });
-    } catch (error) {
-      console.error('Error generating chart:', error);
-      setChartData(null);
+    } catch (e) {
+      console.error('Error chart:', e);
+      setChart(null);
     }
-  }, [selectedQueryId, queries]);
+  }, [selectedId, queries]);
 
-  const handleReload = () => {
-    const saved = localStorage.getItem('etl_query_history');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const etlQueries = parsed.filter(
-          (q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0
-        );
-        setQueries(etlQueries);
-        if (etlQueries.length > 0) {
-          setSelectedQueryId(etlQueries[0].id);
-        }
-      } catch (error) {
-        console.error('Error reloading:', error);
-      }
-    }
-  };
-
-  const handleClearHistory = () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial?')) {
-      localStorage.removeItem('etl_query_history');
-      setQueries([]);
-      setSelectedQueryId(null);
-      setChartData(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="text-center text-gray-400">Cargando...</div>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 text-gray-400">Cargando...</div>;
 
   return (
     <div className="space-y-6 p-8">
       <div>
         <h1 className="text-4xl font-bold text-white">Gráficas vs - Comparación ETL</h1>
-        <p className="text-gray-400 mt-2">Visualiza comparaciones lado a lado entre bases de datos</p>
+        <p className="text-gray-400 mt-2">Comparaciones lado a lado entre bases de datos</p>
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={handleReload} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-          <RotateCcw className="w-4 h-4" />
+        <Button onClick={loadData} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <RotateCcw className="w-4 h-4 mr-2" />
           Recargar
         </Button>
-        <Button onClick={handleClearHistory} className="bg-red-600 hover:bg-red-700 text-white gap-2">
-          <Trash2 className="w-4 h-4" />
-          Limpiar Historial
+        <Button onClick={() => {
+          if (window.confirm('¿Eliminar historial?')) {
+            localStorage.removeItem('etl_query_history');
+            setQueries([]);
+            setSelectedId(null);
+            setChart(null);
+          }
+        }} className="bg-red-600 hover:bg-red-700 text-white">
+          <Trash2 className="w-4 h-4 mr-2" />
+          Limpiar
         </Button>
       </div>
 
-      {queries.length === 0 ? (
+      {!queries.length ? (
         <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center justify-center text-center space-y-3">
-              <AlertCircle className="w-12 h-12 text-gray-500" />
-              <div>
-                <h3 className="text-gray-300 font-semibold text-lg">No hay consultas guardadas</h3>
-                <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL para ver gráficos comparativos</p>
-              </div>
-            </div>
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-gray-300 font-semibold">No hay consultas guardadas</h3>
+            <p className="text-gray-400 text-sm">Ejecuta una consulta ETL para ver gráficos</p>
           </CardContent>
         </Card>
       ) : (
@@ -195,76 +146,39 @@ export default function GraficasVsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {queries.map((query) => (
+                {queries.map((q) => (
                   <div
-                    key={query.id}
-                    onClick={() => setSelectedQueryId(query.id)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedQueryId === query.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                    }`}
+                    key={q.id}
+                    onClick={() => setSelectedId(q.id)}
+                    className={`p-3 rounded-lg cursor-pointer ${selectedId === q.id ? 'bg-blue-600 text-white' : 'bg-slate-700 text-gray-300 hover:bg-slate-600'}`}
                   >
-                    <div className="text-xs font-mono break-all">{query.query.substring(0, 80)}...</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {query.connectionName} • {query.rows.length} filas • {Object.keys(query.multiDBResults).length} DBs
-                    </div>
+                    <div className="text-xs font-mono truncate">{q.query.substring(0, 80)}...</div>
+                    <div className="text-xs text-gray-400 mt-1">{q.connectionName} • {q.rows.length} filas</div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {chartData ? (
+          {chart ? (
             <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-white">Comparación lado a lado</CardTitle>
+                <CardTitle className="text-white">Gráfico Comparativo</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-slate-900 p-6 rounded-lg border border-slate-700" style={{ height: '500px' }}>
+                <div style={{ height: '450px' }}>
                   <Bar
-                    data={chartData}
+                    data={chart}
                     options={{
                       responsive: true,
                       maintainAspectRatio: false,
                       plugins: {
-                        legend: {
-                          display: true,
-                          labels: {
-                            color: '#9CA3AF',
-                            font: { size: 12 },
-                          },
-                        },
-                        tooltip: {
-                          backgroundColor: '#1F2937',
-                          borderColor: '#4B5563',
-                          borderWidth: 1,
-                          titleColor: '#FFFFFF',
-                          bodyColor: '#D1D5DB',
-                          padding: 12,
-                          callbacks: {
-                            label: function(context: any) {
-                              let label = context.dataset.label || '';
-                              if (label) label += ': ';
-                              if (context.parsed.y !== null) {
-                                label += context.parsed.y.toLocaleString('es-ES');
-                              }
-                              return label;
-                            }
-                          }
-                        },
+                        legend: { labels: { color: '#9CA3AF' } },
+                        tooltip: { backgroundColor: '#1F2937', titleColor: '#FFF', bodyColor: '#D1D5DB' },
                       },
                       scales: {
-                        x: {
-                          stacked: false,
-                          grid: { color: '#374151' },
-                          ticks: { color: '#9CA3AF' },
-                        },
-                        y: {
-                          stacked: false,
-                          grid: { color: '#374151' },
-                          ticks: { color: '#9CA3AF' },
-                        },
+                        x: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                        y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
                       },
                     }}
                   />
@@ -273,14 +187,10 @@ export default function GraficasVsPage() {
             </Card>
           ) : (
             <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
-              <CardContent className="p-8">
-                <div className="flex flex-col items-center justify-center text-center space-y-3">
-                  <AlertCircle className="w-12 h-12 text-gray-500" />
-                  <div>
-                    <h3 className="text-gray-300 font-semibold text-lg">No hay datos para visualizar</h3>
-                    <p className="text-gray-400 text-sm mt-1">Selecciona una consulta para ver su gráfico comparativo</p>
-                  </div>
-                </div>
+              <CardContent className="p-8 text-center">
+                <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-gray-300 font-semibold">No hay datos para visualizar</h3>
+                <p className="text-gray-400 text-sm">Selecciona una consulta para ver su gráfico</p>
               </CardContent>
             </Card>
           )}
