@@ -55,6 +55,7 @@ export function Graficas() {
   const [numericColumns, setNumericColumns] = useState<string[]>([]);
   const [selectedNumericColumns, setSelectedNumericColumns] = useState<string[]>([]);
   const [labelColumn, setLabelColumn] = useState<string>('');
+  const [comparisonDBs, setComparisonDBs] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     loadHistory();
@@ -254,12 +255,12 @@ export function Graficas() {
 
       case 'stacked-bar':
         return (
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={100} />
+            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
             <YAxis stroke="#9CA3AF" />
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
-            <Legend />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
             {selectedNumericColumns.map((col, idx) => (
               <Bar key={col} dataKey={col} stackId="a" fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
             ))}
@@ -268,12 +269,12 @@ export function Graficas() {
 
       case 'grouped-bar':
         return (
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={100} />
+            <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
             <YAxis stroke="#9CA3AF" />
             <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
-            <Legend />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
             {selectedNumericColumns.map((col, idx) => (
               <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
             ))}
@@ -611,16 +612,26 @@ export function Graficas() {
 
               {/* Análisis Comparativo */}
               <div>
-                <h4 className="text-sm font-bold text-white mb-4">Análisis Comparativo</h4>
+                <h4 className="text-sm font-bold text-white mb-4">Análisis Comparativo por Elemento</h4>
                 <div className="bg-slate-700 rounded-lg p-4 border border-slate-600 space-y-2">
                   {generateComparativeAnalysis(chartData, selectedNumericColumns).map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-300">{item.label}</span>
+                      <div className="flex items-center gap-2">
+                        {item.isLeader && <span className="text-yellow-400 font-bold text-lg">★</span>}
+                        <span className={`${item.isLeader ? 'text-yellow-300 font-semibold' : 'text-gray-300'}`}>
+                          {item.label}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-slate-600 rounded h-2 w-32">
-                          <div className="bg-blue-500 h-full rounded" style={{ width: `${item.percentage}%` }}></div>
+                          <div 
+                            className={`h-full rounded ${item.isLeader ? 'bg-yellow-500' : 'bg-blue-500'}`} 
+                            style={{ width: `${item.percentage}%` }}
+                          ></div>
                         </div>
-                        <span className="text-blue-400 font-bold w-20 text-right">{item.value}</span>
+                        <span className={`font-bold w-20 text-right ${item.isLeader ? 'text-yellow-400' : 'text-blue-400'}`}>
+                          {item.value}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -704,14 +715,18 @@ const generateComparativeAnalysis = (data: any[], metrics: string[]) => {
     }
   });
 
-  return data.map((item, idx) => {
+  const analysis = data.map((item, idx) => {
     const total = metrics.reduce((sum, metric) => sum + (item[metric] || 0), 0);
     return {
       label: item.name,
       value: total.toLocaleString('es-ES'),
       percentage: maxTotal > 0 ? (total / maxTotal) * 100 : 0,
+      isLeader: idx === maxIndex,
     };
   });
+
+  // Destacar el elemento líder
+  return analysis.sort((a, b) => b.percentage - a.percentage);
 };
 
 const generateStrategicRecommendations = (data: any[], metrics: string[], chartType: ChartType) => {
