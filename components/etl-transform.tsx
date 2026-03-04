@@ -46,6 +46,7 @@ export function ETLTransform() {
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
   const [multiDBResults, setMultiDBResults] = useState<Record<string, QueryResult | null>>({});
   const [showETLCharts, setShowETLCharts] = useState(false);
+  const [etlMode, setETLMode] = useState<'consulta' | 'grafico'>('consulta');
 
   useEffect(() => {
     loadConnections();
@@ -272,6 +273,32 @@ export function ETLTransform() {
         <p className="text-gray-400">Extrae, transforma y consulta datos de otras bases de datos</p>
       </div>
 
+      {/* Navegación: Consulta / Gráfico */}
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setETLMode('consulta')}
+          className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+            etlMode === 'consulta'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+          }`}
+        >
+          Consulta
+        </Button>
+        <Button
+          onClick={() => setETLMode('grafico')}
+          disabled={Object.keys(multiDBResults).length === 0}
+          className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+            etlMode === 'grafico'
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-700 text-gray-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'
+          }`}
+        >
+          Gráfico ETL
+        </Button>
+      </div>
+
+      {etlMode === 'consulta' && (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Editor */}
         <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 lg:col-span-3">
@@ -465,14 +492,6 @@ export function ETLTransform() {
                 <Play className="w-4 h-4" />
                 {loading ? 'Ejecutando...' : 'Ejecutar'}
               </Button>
-              <Button
-                onClick={() => setShowETLCharts(!showETLCharts)}
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-                disabled={!results}
-              >
-                <BarChart3 className="w-4 h-4" />
-                {showETLCharts ? 'Ocultar' : 'Gráfico ETL'}
-              </Button>
             </div>
 
             {/* Resultados */}
@@ -612,18 +631,6 @@ export function ETLTransform() {
           </CardContent>
         </Card>
 
-        {/* Gráficos ETL */}
-        {showETLCharts && Object.keys(multiDBResults).length > 1 && results && (
-          <div className="lg:col-span-3">
-            <ETLCharts
-              multiDBResults={multiDBResults}
-              columns={results.columns}
-              labelColumn={results.columns[0]}
-              selectedConnections={selectedConnections}
-            />
-          </div>
-        )}
-
         {/* Historial */}
         <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 h-fit">
           <CardHeader>
@@ -647,6 +654,18 @@ export function ETLTransform() {
           </CardContent>
         </Card>
       </div>
+      )}
+
+      {etlMode === 'grafico' && Object.keys(multiDBResults).length > 0 && (
+        <div className="w-full">
+          <ETLCharts
+            multiDBResults={multiDBResults}
+            columns={results?.columns || []}
+            labelColumn={results?.columns[0] || ''}
+            selectedConnections={selectedConnections}
+          />
+        </div>
+      )}
     </div>
   );
 }
