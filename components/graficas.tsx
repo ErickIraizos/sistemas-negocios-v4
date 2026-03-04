@@ -32,7 +32,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { CustomBarChart } from './custom-bar-chart';
 
 interface QueryRecord {
   id: number;
@@ -406,32 +405,46 @@ export function Graficas() {
 
       case 'stacked-bar':
         return (
-          <div className="w-full" style={{ height: '600px' }}>
-            <CustomBarChart
-              data={chartData}
-              columns={selectedNumericColumns}
-              labelKey="name"
-              width={800}
-              height={600}
-              type="stacked"
-              colors={COLORS}
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 150 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis 
+              dataKey="name" 
+              stroke="#9CA3AF" 
+              angle={-45} 
+              textAnchor="end" 
+              height={150} 
+              interval={0}
+              tick={{ fontSize: 12 }}
             />
-          </div>
+            <YAxis stroke="#9CA3AF" width={60} label={{ value: 'Valor Acumulado', angle: -90, position: 'insideLeft' }} />
+            <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            {selectedNumericColumns.map((col, idx) => (
+              <Bar key={col} dataKey={col} stackId="a" fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+            ))}
+          </BarChart>
         );
 
       case 'grouped-bar':
         return (
-          <div className="w-full" style={{ height: '600px' }}>
-            <CustomBarChart
-              data={chartData}
-              columns={selectedNumericColumns}
-              labelKey="name"
-              width={800}
-              height={600}
-              type="grouped"
-              colors={COLORS}
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 80, bottom: 150 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis 
+              dataKey="name" 
+              stroke="#9CA3AF" 
+              angle={-45} 
+              textAnchor="end" 
+              height={150} 
+              interval={0}
+              tick={{ fontSize: 12 }}
             />
-          </div>
+            <YAxis stroke="#9CA3AF" width={60} label={{ value: 'Valor', angle: -90, position: 'insideLeft' }} />
+            <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            {selectedNumericColumns.map((col, idx) => (
+              <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+            ))}
+          </BarChart>
         );
 
       case 'barh':
@@ -803,23 +816,9 @@ export function Graficas() {
             </CardHeader>
             <CardContent>
               <div ref={chartRef} className="bg-slate-900 p-6 rounded-lg">
-                {selectedNumericColumns.length > 1 && (chartType === 'grouped-bar' || chartType === 'stacked-bar') ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <CustomBarChart
-                      data={chartData}
-                      columns={selectedNumericColumns}
-                      labelKey="name"
-                      width={Math.max(900, chartData.length * 120)}
-                      height={500}
-                      type={chartType === 'grouped-bar' ? 'grouped' : 'stacked'}
-                      colors={COLORS}
-                    />
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={500}>
-                    {renderChart()}
-                  </ResponsiveContainer>
-                )}
+                <ResponsiveContainer width="100%" height={500}>
+                  {renderChart()}
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -858,34 +857,20 @@ export function Graficas() {
                       <div key={dbName} className="border-t border-slate-700 pt-6">
                         <h4 className="text-lg font-bold text-blue-300 mb-4">📊 {dbName}</h4>
                         <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
-                          {dbChartData.length > 0 ? (
-                            selectedNumericColumns.length > 1 && (chartType === 'grouped-bar' || chartType === 'stacked-bar') ? (
-                              <div style={{ overflowX: 'auto' }}>
-                                <CustomBarChart
-                                  data={dbChartData}
-                                  columns={selectedNumericColumns}
-                                  labelKey="name"
-                                  width={Math.max(800, dbChartData.length * 100)}
-                                  height={400}
-                                  type={chartType === 'grouped-bar' ? 'grouped' : 'stacked'}
-                                  colors={COLORS}
-                                />
-                              </div>
-                            ) : (
-                              <ResponsiveContainer width="100%" height={400}>
-                                <BarChart data={dbChartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                  <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
-                                  <YAxis stroke="#9CA3AF" width={60} />
-                                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
-                                  <Legend />
-                                  {selectedNumericColumns.map((col, idx) => (
-                                    <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
-                                  ))}
-                                </BarChart>
-                              </ResponsiveContainer>
-                            )
-                          ) : null}
+                          <ResponsiveContainer width="100%" height={400}>
+                            {dbChartData.length > 0 ? (
+                              <BarChart data={dbChartData} margin={{ top: 20, right: 30, left: 80, bottom: 120 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                <XAxis dataKey="name" stroke="#9CA3AF" angle={-45} textAnchor="end" height={120} interval={0} />
+                                <YAxis stroke="#9CA3AF" width={60} />
+                                <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #4B5563', borderRadius: '8px' }} />
+                                <Legend />
+                                {selectedNumericColumns.map((col, idx) => (
+                                  <Bar key={col} dataKey={col} fill={COLORS[idx % COLORS.length]} radius={[8, 8, 0, 0]} />
+                                ))}
+                              </BarChart>
+                            ) : null}
+                          </ResponsiveContainer>
                         </div>
                         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                           {generateKPIs(dbChartData, selectedNumericColumns).slice(0, 4).map((kpi, idx) => (
@@ -913,23 +898,9 @@ export function Graficas() {
               <CardContent>
                 <div className="bg-slate-900 p-6 rounded-lg border border-slate-700">
                   <p className="text-gray-400 text-sm mb-4">Gráfica unificada mostrando datos de: {selectedDBsForComparison.join(', ')}</p>
-                  {selectedNumericColumns.length > 1 && (chartType === 'grouped-bar' || chartType === 'stacked-bar') ? (
-                    <div style={{ overflowX: 'auto' }}>
-                      <CustomBarChart
-                        data={chartData}
-                        columns={selectedNumericColumns}
-                        labelKey="name"
-                        width={Math.max(900, chartData.length * 120)}
-                        height={500}
-                        type={chartType === 'grouped-bar' ? 'grouped' : 'stacked'}
-                        colors={COLORS}
-                      />
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={500}>
-                      {renderChart()}
-                    </ResponsiveContainer>
-                  )}
+                  <ResponsiveContainer width="100%" height={500}>
+                    {renderChart()}
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
