@@ -33,26 +33,44 @@ export default function GraficasVsPage() {
 
   // Procesar datos cuando se selecciona una consulta
   useEffect(() => {
-    if (!selectedQueryId) return;
+    if (!selectedQueryId || queries.length === 0) {
+      setChartData([]);
+      return;
+    }
 
     const selected = queries.find((q) => q.id === selectedQueryId);
-    console.log('[v0] Consulta seleccionada:', selectedQueryId, 'datos:', selected);
-    if (!selected || !selected.multiDBResults) return;
+    console.log('[v0] Consulta seleccionada:', selectedQueryId, 'encontrada:', !!selected);
+    
+    if (!selected || !selected.multiDBResults) {
+      console.log('[v0] Sin multiDBResults');
+      setChartData([]);
+      return;
+    }
 
     // Combinar datos de múltiples DBs para comparación lado a lado
     const labelCol = selected.columns?.[0] || 'name';
     const numericCols = selected.columns?.filter((col: string) => {
-      const val = Object.values(selected.multiDBResults)[0]?.[0]?.[col];
-      return val !== null && val !== undefined && !isNaN(Number(val));
+      const firstDb = Object.values(selected.multiDBResults)[0];
+      if (Array.isArray(firstDb) && firstDb.length > 0) {
+        const val = firstDb[0][col];
+        return val !== null && val !== undefined && !isNaN(Number(val));
+      }
+      return false;
     }) || [];
 
-    if (numericCols.length === 0) return;
+    console.log('[v0] Columnas numéricas encontradas:', numericCols.length, numericCols);
+
+    if (numericCols.length === 0) {
+      console.log('[v0] Sin columnas numéricas');
+      setChartData([]);
+      return;
+    }
 
     const unifiedData: Record<string, any> = {};
-    const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
     // Iterar sobre cada DB
     Object.entries(selected.multiDBResults).forEach(([dbName, dbResult]: [string, any]) => {
+      console.log('[v0] Procesando DB:', dbName, 'filas:', Array.isArray(dbResult) ? dbResult.length : 0);
       if (Array.isArray(dbResult)) {
         dbResult.forEach((row: any) => {
           const label = String(row[labelCol] ?? 'N/A');
@@ -67,7 +85,9 @@ export default function GraficasVsPage() {
       }
     });
 
-    setChartData(Object.values(unifiedData));
+    const finalData = Object.values(unifiedData);
+    console.log('[v0] Datos finales procesados:', finalData.length, 'registros');
+    setChartData(finalData);
   }, [selectedQueryId, queries]);
 
   if (loading) {
@@ -98,10 +118,14 @@ export default function GraficasVsPage() {
 
   const selectedQuery = queries.find((q) => q.id === selectedQueryId);
   const numericCols = selectedQuery?.columns?.filter((col: string) => {
-    const val = Object.values(selectedQuery.multiDBResults)?.[0]?.[0]?.[col];
-    return val !== null && val !== undefined && !isNaN(Number(val));
+    const firstDb = Object.values(selectedQuery?.multiDBResults || {})[0];
+    if (Array.isArray(firstDb) && firstDb.length > 0) {
+      const val = firstDb[0][col];
+      return val !== null && val !== undefined && !isNaN(Number(val));
+    }
+    return false;
   }) || [];
-  const dbNames = selectedQuery ? Object.keys(selectedQuery.multiDBResults) : [];
+  const dbNames = selectedQuery ? Object.keys(selectedQuery.multiDBResults || {}) : [];
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
   return (
