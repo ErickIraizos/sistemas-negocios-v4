@@ -3,58 +3,56 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
 export default function GraficasVsPage() {
   const [queries, setQueries] = useState<any[]>([]);
   const [selectedQueryId, setSelectedQueryId] = useState<string | null>(null);
   const [chartData, setChartData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Cargar consultas desde localStorage
   const loadQueries = () => {
-    const savedQueries = localStorage.getItem('etl_query_history');
-    if (savedQueries) {
-      try {
-        const parsedQueries = JSON.parse(savedQueries);
-        const etlQueries = parsedQueries.filter(
+    try {
+      const saved = localStorage.getItem('etl_query_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const etlQueries = parsed.filter(
           (q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0
         );
         setQueries(etlQueries);
         if (etlQueries.length > 0 && !selectedQueryId) {
           setSelectedQueryId(etlQueries[0].id);
         }
-      } catch (error) {
-        console.error('Error al cargar consultas:', error);
       }
+      setError(null);
+    } catch (err) {
+      setError('Error al cargar las consultas guardadas');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // Limpiar historial completo
   const clearHistory = () => {
-    if (
-      window.confirm(
-        '¿Estás seguro de que deseas eliminar todo el historial de ETL? Esta acción no se puede deshacer.'
-      )
-    ) {
+    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial de ETL?')) {
       localStorage.removeItem('etl_query_history');
       setQueries([]);
       setSelectedQueryId(null);
       setChartData(null);
+      setError(null);
     }
   };
 
-  // Cargar consultas al montar el componente
   useEffect(() => {
     loadQueries();
   }, []);
 
-  // Procesar datos cuando se selecciona una consulta
   useEffect(() => {
     if (!selectedQueryId || queries.length === 0) {
       setChartData(null);
@@ -67,61 +65,65 @@ export default function GraficasVsPage() {
       return;
     }
 
-    // Obtener columnas numéricas
-    const labelCol = selected.columns?.[0] || 'name';
-    const numericCols = selected.columns?.filter((col: string) => {
-      const firstDb = Object.values(selected.multiDBResults)[0];
-      if (Array.isArray(firstDb) && firstDb.length > 0) {
-        const val = firstDb[0][col];
-        return val !== null && val !== undefined && !isNaN(Number(val));
+    try {
+      const labelCol = selected.columns?.[0] || 'name';
+      const dbNames = Object.keys(selected.multiDBResults);
+
+      const numericCols = selected.columns?.filter((col: string) => {
+        const firstDb = selected.multiDBResults[dbNames[0]];
+        if (Array.isArray(firstDb) && firstDb.length > 0) {
+          const val = firstDb[0][col];
+          return val !== null && val !== undefined && !isNaN(Number(val));
+        }
+        return false;
+      }) || [];
+
+      if (numericCols.length === 0) {
+        setChartData(null);
+        return;
       }
-      return false;
-    }) || [];
 
-    if (numericCols.length === 0) {
-      setChartData(null);
-      return;
-    }
-
-    // Combinar datos lado a lado
-    const unifiedData: Record<string, any> = {};
-    Object.entries(selected.multiDBResults).forEach(([dbName, dbResult]: [string, any]) => {
-      if (Array.isArray(dbResult)) {
-        dbResult.forEach((row: any) => {
-          const label = String(row[labelCol] ?? 'N/A');
-          if (!unifiedData[label]) {
-            unifiedData[label] = { name: label };
-          }
-          numericCols.forEach((col: string) => {
-            const value = Number(row[col]) || 0;
-            unifiedData[label][`${col}_${dbName}`] = value;
+      const unifiedData: Record<string, any> = {};
+      Object.entries(selected.multiDBResults).forEach(([dbName, dbResult]: [string, any]) => {
+        if (Array.isArray(dbResult)) {
+          dbResult.forEach((row: any) => {
+            const label = String(row[labelCol] ?? 'N/A');
+            if (!unifiedData[label]) {
+              unifiedData[label] = { name: label };
+            }
+            numericCols.forEach((col: string) => {
+              const value = Number(row[col]) || 0;
+              unifiedData[label][`${col}_${dbName}`] = value;
+            });
           });
-        });
+        }
+      });
+
+      const finalData = Object.values(unifiedData);
+      if (finalData.length === 0) {
+        setChartData(null);
+        return;
       }
-    });
 
-    const finalData = Object.values(unifiedData);
-    if (finalData.length === 0) {
+      const datasets = numericCols.flatMap((col: string, colIdx: number) =>
+        dbNames.map((dbName, dbIdx) => ({
+          label: `${col} (${dbName})`,
+          data: finalData.map((item) => item[`${col}_${dbName}`] || 0),
+          backgroundColor: COLORS[(colIdx * dbNames.length + dbIdx) % COLORS.length],
+          borderColor: COLORS[(colIdx * dbNames.length + dbIdx) % COLORS.length],
+          borderWidth: 1,
+          borderRadius: 4,
+        }))
+      );
+
+      setChartData({
+        labels: finalData.map((item) => item.name),
+        datasets,
+      });
+    } catch (err) {
+      setError('Error al generar el gráfico');
       setChartData(null);
-      return;
     }
-
-    // Preparar datos para Chart.js
-    const dbNames = Object.keys(selected.multiDBResults);
-    const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-
-    const datasets = numericCols.flatMap((col: string, colIdx: number) =>
-      dbNames.map((dbName, dbIdx) => ({
-        label: `${col} (${dbName})`,
-        data: finalData.map((item) => item[`${col}_${dbName}`] || 0),
-        backgroundColor: COLORS[(colIdx * dbNames.length + dbIdx) % COLORS.length],
-      }))
-    );
-
-    setChartData({
-      labels: finalData.map((item) => item.name),
-      datasets,
-    });
   }, [selectedQueryId, queries]);
 
   if (loading) {
@@ -139,20 +141,26 @@ export default function GraficasVsPage() {
         <p className="text-gray-400 mt-2">Visualiza comparaciones lado a lado entre bases de datos</p>
       </div>
 
-      {/* Botones de acción */}
+      {error && (
+        <Card className="bg-red-900/20 border-red-700">
+          <CardContent className="p-4 flex items-center gap-2 text-red-300">
+            <AlertCircle className="w-5 h-5" />
+            {error}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex gap-2">
         <Button
           onClick={loadQueries}
-          variant="outline"
-          className="gap-2"
+          className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RotateCcw className="w-4 h-4" />
           Recargar
         </Button>
         <Button
           onClick={clearHistory}
-          variant="destructive"
-          className="gap-2"
+          className="bg-red-600 hover:bg-red-700 text-white gap-2"
         >
           <Trash2 className="w-4 h-4" />
           Limpiar Historial
@@ -166,14 +174,13 @@ export default function GraficasVsPage() {
               <AlertCircle className="w-12 h-12 text-gray-500" />
               <div>
                 <h3 className="text-gray-300 font-semibold text-lg">No hay consultas guardadas</h3>
-                <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL primero para ver gráficos</p>
+                <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL primero para ver gráficos comparativos</p>
               </div>
             </div>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Selector de consulta */}
           <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
             <CardHeader>
               <CardTitle className="text-white">Seleccionar Consulta</CardTitle>
@@ -192,7 +199,7 @@ export default function GraficasVsPage() {
                   >
                     <div className="text-xs font-mono break-all">{query.query.substring(0, 80)}...</div>
                     <div className="text-xs text-gray-400 mt-1">
-                      {query.connectionName} · {query.rows.length} filas
+                      {query.connectionName} • {query.rows.length} filas • {Object.keys(query.multiDBResults).length} DBs
                     </div>
                   </div>
                 ))}
@@ -200,7 +207,6 @@ export default function GraficasVsPage() {
             </CardContent>
           </Card>
 
-          {/* Gráfico */}
           {chartData ? (
             <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
               <CardHeader>
@@ -228,6 +234,16 @@ export default function GraficasVsPage() {
                           titleColor: '#FFFFFF',
                           bodyColor: '#D1D5DB',
                           padding: 12,
+                          callbacks: {
+                            label: function(context: any) {
+                              let label = context.dataset.label || '';
+                              if (label) label += ': ';
+                              if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('es-ES');
+                              }
+                              return label;
+                            }
+                          }
                         },
                       },
                       scales: {
