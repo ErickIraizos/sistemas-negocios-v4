@@ -55,6 +55,11 @@ const etlItems: NavItem[] = [
     href: '/etl/prueba',
     icon: <CheckCircle className="w-5 h-5" />,
   },
+  {
+    name: 'Gráficas vs',
+    href: '/etl/graficas-vs',
+    icon: <BarChart3 className="w-5 h-5" />,
+  },
 ];
 
 export function Sidebar({ currentPath }: { currentPath: string }) {
