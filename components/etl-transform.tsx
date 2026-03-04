@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Copy, AlertCircle, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { Play, Copy, AlertCircle, Plus, Trash2, ChevronDown, BarChart3 } from 'lucide-react';
+import { ETLCharts } from './etl-charts';
 
 interface Connection {
   id: string;
@@ -44,6 +45,7 @@ export function ETLTransform() {
   const [showTableSelector, setShowTableSelector] = useState(false);
   const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
   const [multiDBResults, setMultiDBResults] = useState<Record<string, QueryResult | null>>({});
+  const [showETLCharts, setShowETLCharts] = useState(false);
 
   useEffect(() => {
     loadConnections();
@@ -463,6 +465,15 @@ export function ETLTransform() {
                 <Play className="w-4 h-4" />
                 {loading ? 'Ejecutando...' : 'Ejecutar'}
               </Button>
+              {Object.keys(multiDBResults).length > 1 && (
+                <Button
+                  onClick={() => setShowETLCharts(!showETLCharts)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  {showETLCharts ? 'Ocultar' : 'Gráfico ETL'}
+                </Button>
+              )}
             </div>
 
             {/* Resultados */}
@@ -601,6 +612,18 @@ export function ETLTransform() {
             )}
           </CardContent>
         </Card>
+
+        {/* Gráficos ETL */}
+        {showETLCharts && Object.keys(multiDBResults).length > 1 && results && (
+          <div className="lg:col-span-3">
+            <ETLCharts
+              multiDBResults={multiDBResults}
+              columns={results.columns}
+              labelColumn={results.columns[0]}
+              selectedConnections={selectedConnections}
+            />
+          </div>
+        )}
 
         {/* Historial */}
         <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 h-fit">
