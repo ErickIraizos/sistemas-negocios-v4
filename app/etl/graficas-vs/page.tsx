@@ -111,16 +111,6 @@ export default function GraficasVsPage() {
       setQueries([]);
       setSelectedQueryId(null);
       setChartData(null);
-      return;
-    }
-  };
-
-  const clearHistory = () => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar todo el historial de ETL? Esta acción no se puede deshacer.')) {
-      localStorage.removeItem('etl_query_history');
-      setQueries([]);
-      setSelectedQueryId(null);
-      setChartData(null);
     }
   };
 
