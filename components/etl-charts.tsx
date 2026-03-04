@@ -26,12 +26,31 @@ export function ETLCharts({
   const [chartType, setChartType] = useState<'grouped-bar' | 'stacked-bar' | 'line' | 'comparison-pie'>('grouped-bar');
   const [selectedMetric, setSelectedMetric] = useState<string>(columns[0] || '');
 
+  // Validar que hay datos
+  if (!multiDBResults || Object.keys(multiDBResults).length === 0) {
+    return (
+      <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center justify-center text-center space-y-3">
+            <AlertCircle className="w-12 h-12 text-gray-500" />
+            <div>
+              <h3 className="text-gray-300 font-semibold text-lg">No hay datos disponibles</h3>
+              <p className="text-gray-400 text-sm mt-1">Ejecuta una consulta ETL primero para ver gráficos</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Obtener datos numéricos
   const numericColumns = columns.filter((col) => {
     for (const dbData of Object.values(multiDBResults)) {
-      const val = dbData[0]?.[col];
-      if (val !== null && val !== undefined && !isNaN(Number(val))) {
-        return true;
+      if (Array.isArray(dbData) && dbData.length > 0) {
+        const val = dbData[0]?.[col];
+        if (val !== null && val !== undefined && !isNaN(Number(val))) {
+          return true;
+        }
       }
     }
     return false;
@@ -40,14 +59,21 @@ export function ETLCharts({
   if (numericColumns.length === 0) {
     return (
       <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-2 text-yellow-400">
-            <AlertCircle className="w-5 h-5" />
-            <p>No hay columnas numéricas para visualizar</p>
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center justify-center text-center space-y-3">
+            <AlertCircle className="w-12 h-12 text-gray-500" />
+            <div>
+              <h3 className="text-gray-300 font-semibold text-lg">No hay columnas numéricas</h3>
+              <p className="text-gray-400 text-sm mt-1">Los datos de esta consulta no contienen números para visualizar</p>
+            </div>
           </div>
         </CardContent>
       </Card>
     );
+  }
+
+  if (!selectedMetric || !numericColumns.includes(selectedMetric)) {
+    setSelectedMetric(numericColumns[0]);
   }
 
   // Preparar datos para gráfico agrupado (todos los DBs lado a lado)
@@ -223,7 +249,22 @@ export function ETLCharts({
 
   const data = getChartData();
 
-  return (
+  // Validar que getChartData retornó datos válidos
+  if (!data || !data.labels || data.labels.length === 0 || !data.datasets || data.datasets.length === 0) {
+    return (
+      <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center justify-center text-center space-y-3">
+            <AlertCircle className="w-12 h-12 text-gray-500" />
+            <div>
+              <h3 className="text-gray-300 font-semibold text-lg">No hay datos para el gráfico</h3>
+              <p className="text-gray-400 text-sm mt-1">Verifica que la consulta retornó datos válidos</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
     <div className="space-y-6">
       <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
         <CardHeader>

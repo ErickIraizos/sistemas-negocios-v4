@@ -196,7 +196,6 @@ export function Graficas() {
 
     // Si hay múltiples DBs, guardarlas para comparación
     if (Object.keys(dbsMap).length > 1) {
-      console.log('[v0] DBs detectadas:', Object.keys(dbsMap));
       setComparisonDBs(dbsMap);
       setSelectedDBsForComparison(Object.keys(dbsMap).slice(0, 2)); // Seleccionar las 2 primeras por defecto
     } else if (Object.keys(dbsMap).length === 1) {
