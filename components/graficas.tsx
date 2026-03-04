@@ -420,6 +420,8 @@ export function Graficas() {
 
     return bars;
   };
+
+  const renderChart = () => {
     // Renderiza el gráfico basado en el tipo seleccionado
     if (chartData.length === 0) return null;
 
