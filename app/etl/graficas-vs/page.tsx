@@ -17,8 +17,9 @@ export default function GraficasVsPage() {
     if (savedQueries) {
       try {
         const parsedQueries = JSON.parse(savedQueries);
-        // Filtrar solo consultas ETL (que tienen múltiples DBs)
-        const etlQueries = parsedQueries.filter((q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 1);
+        // Filtrar solo consultas ETL que tienen datos
+        const etlQueries = parsedQueries.filter((q: any) => q.isETL && q.multiDBResults && Object.keys(q.multiDBResults).length > 0);
+        console.log('[v0] Consultas ETL cargadas:', etlQueries.length);
         setQueries(etlQueries);
         if (etlQueries.length > 0) {
           setSelectedQueryId(etlQueries[0].id);
@@ -35,6 +36,7 @@ export default function GraficasVsPage() {
     if (!selectedQueryId) return;
 
     const selected = queries.find((q) => q.id === selectedQueryId);
+    console.log('[v0] Consulta seleccionada:', selectedQueryId, 'datos:', selected);
     if (!selected || !selected.multiDBResults) return;
 
     // Combinar datos de múltiples DBs para comparación lado a lado

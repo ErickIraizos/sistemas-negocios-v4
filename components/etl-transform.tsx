@@ -120,8 +120,8 @@ export function ETLTransform() {
       isETL: true,
     };
 
-    // Si hay múltiples DBs, guardar todos los resultados
-    if (allResults && Object.keys(allResults).length > 1) {
+    // Siempre guardar todos los resultados si existen
+    if (allResults && Object.keys(allResults).length > 0) {
       newHistoryEntry.multiDBResults = allResults;
       newHistoryEntry.selectedConnections = selectedConnections;
     }
@@ -130,6 +130,7 @@ export function ETLTransform() {
     
     setQueryHistory(newHistory);
     localStorage.setItem('etl_query_history', JSON.stringify(newHistory));
+    console.log('[v0] Guardando consulta ETL:', newHistoryEntry.id, 'con DBs:', Object.keys(allResults || {}).length);
   };
 
   const executeQuery = async () => {
