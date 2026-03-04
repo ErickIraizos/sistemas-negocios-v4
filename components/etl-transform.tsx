@@ -465,7 +465,7 @@ export function ETLTransform() {
                 <Play className="w-4 h-4" />
                 {loading ? 'Ejecutando...' : 'Ejecutar'}
               </Button>
-              {Object.keys(multiDBResults).length > 1 && (
+              {results && Object.keys(multiDBResults).length > 0 && (
                 <Button
                   onClick={() => setShowETLCharts(!showETLCharts)}
                   className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
