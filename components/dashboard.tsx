@@ -5,21 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowRight } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, ArcElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Line, Pie } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, ArcElement, PointElement, Title, Tooltip, Legend);
 
 interface Stats {
   status: string;
@@ -184,29 +173,37 @@ export function Dashboard() {
               <p className="text-gray-400 text-xs mt-2">Distribución de casos: cada barra representa el número de casos atendidos por enfermedad. Útil para identificar enfermedades prevalentes.</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={[
-                  { name: 'Gripe', casos: 245 },
-                  { name: 'COVID-19', casos: 189 },
-                  { name: 'Dengue', casos: 156 },
-                  { name: 'Diabetes', casos: 342 },
-                  { name: 'Hipertensión', casos: 287 },
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="name" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip
-                    contentStyle={{
+              <Bar
+                data={{
+                  labels: ['Gripe', 'COVID-19', 'Dengue', 'Diabetes', 'Hipertensión'],
+                  datasets: [{
+                    label: 'Casos',
+                    data: [245, 189, 156, 342, 287],
+                    backgroundColor: '#3B82F6',
+                    borderColor: '#3B82F6',
+                    borderRadius: 8,
+                  }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { labels: { color: '#9CA3AF' } },
+                    tooltip: {
                       backgroundColor: '#1F2937',
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#FFF' }}
-                  />
-                  <Legend />
-                  <Bar dataKey="casos" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                      borderColor: '#4B5563',
+                      borderWidth: 1,
+                      titleColor: '#FFFFFF',
+                      bodyColor: '#D1D5DB',
+                    },
+                  },
+                  scales: {
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                    y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                  },
+                }}
+                height={300}
+              />
             </CardContent>
           </Card>
 
@@ -222,30 +219,41 @@ export function Dashboard() {
               <p className="text-gray-400 text-xs mt-2">Evolución mensual: la línea muestra el volumen de cirugías. Identifica picos de actividad y tendencias.</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={[
-                  { mes: 'Sep', cirugias: 45 },
-                  { mes: 'Oct', cirugias: 52 },
-                  { mes: 'Nov', cirugias: 48 },
-                  { mes: 'Dic', cirugias: 61 },
-                  { mes: 'Ene', cirugias: 55 },
-                  { mes: 'Feb', cirugias: 68 },
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="mes" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip
-                    contentStyle={{
+              <Line
+                data={{
+                  labels: ['Sep', 'Oct', 'Nov', 'Dic', 'Ene', 'Feb'],
+                  datasets: [{
+                    label: 'Cirugías',
+                    data: [45, 52, 48, 61, 55, 68],
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderColor: '#10B981',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#10B981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.4,
+                  }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { labels: { color: '#9CA3AF' } },
+                    tooltip: {
                       backgroundColor: '#1F2937',
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#FFF' }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="cirugias" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981' }} />
-                </LineChart>
-              </ResponsiveContainer>
+                      borderColor: '#4B5563',
+                      borderWidth: 1,
+                      titleColor: '#FFFFFF',
+                      bodyColor: '#D1D5DB',
+                    },
+                  },
+                  scales: {
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                    y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                  },
+                }}
+                height={300}
+              />
             </CardContent>
           </Card>
 
@@ -261,34 +269,36 @@ export function Dashboard() {
               <p className="text-gray-400 text-xs mt-2">Proporción por género: cada sección del pastel representa el porcentaje de pacientes. Ayuda a entender la composición de usuarios.</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Masculino', value: 456 },
-                      { name: 'Femenino', value: 523 },
-                      { name: 'Otro', value: 89 },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label
-                    dataKey="value"
-                  >
-                    <Cell fill="#3B82F6" />
-                    <Cell fill="#EC4899" />
-                    <Cell fill="#F59E0B" />
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
+              <Pie
+                data={{
+                  labels: ['Masculino', 'Femenino', 'Otro'],
+                  datasets: [{
+                    label: 'Pacientes',
+                    data: [456, 523, 89],
+                    backgroundColor: ['#3B82F6', '#EC4899', '#F59E0B'],
+                    borderColor: '#1F2937',
+                    borderWidth: 2,
+                  }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { 
+                      labels: { color: '#9CA3AF' },
+                      position: 'bottom' as const,
+                    },
+                    tooltip: {
                       backgroundColor: '#1F2937',
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#FFF' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                      borderColor: '#4B5563',
+                      borderWidth: 1,
+                      titleColor: '#FFFFFF',
+                      bodyColor: '#D1D5DB',
+                    },
+                  },
+                }}
+                height={300}
+              />
             </CardContent>
           </Card>
 
@@ -304,30 +314,46 @@ export function Dashboard() {
               <p className="text-gray-400 text-xs mt-2">Ocupación por piso: rojo=ocupadas, verde=disponibles. Permite optimizar la asignación de recursos y planificación.</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={[
-                  { piso: 'Piso 1', ocupadas: 25, disponibles: 15 },
-                  { piso: 'Piso 2', ocupadas: 32, disponibles: 8 },
-                  { piso: 'Piso 3', ocupadas: 28, disponibles: 12 },
-                  { piso: 'Piso 4', ocupadas: 35, disponibles: 5 },
-                  { piso: 'Piso 5', ocupadas: 20, disponibles: 20 },
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="piso" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip
-                    contentStyle={{
+              <Bar
+                data={{
+                  labels: ['Piso 1', 'Piso 2', 'Piso 3', 'Piso 4', 'Piso 5'],
+                  datasets: [
+                    {
+                      label: 'Ocupadas',
+                      data: [25, 32, 28, 35, 20],
+                      backgroundColor: '#EF4444',
+                      borderColor: '#EF4444',
+                      borderRadius: 8,
+                    },
+                    {
+                      label: 'Disponibles',
+                      data: [15, 8, 12, 5, 20],
+                      backgroundColor: '#10B981',
+                      borderColor: '#10B981',
+                      borderRadius: 8,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: { labels: { color: '#9CA3AF' } },
+                    tooltip: {
                       backgroundColor: '#1F2937',
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#FFF' }}
-                  />
-                  <Legend />
-                  <Bar dataKey="ocupadas" fill="#EF4444" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="disponibles" fill="#10B981" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                      borderColor: '#4B5563',
+                      borderWidth: 1,
+                      titleColor: '#FFFFFF',
+                      bodyColor: '#D1D5DB',
+                    },
+                  },
+                  scales: {
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                    y: { grid: { color: '#374151' }, ticks: { color: '#9CA3AF' } },
+                  },
+                }}
+                height={300}
+              />
             </CardContent>
           </Card>
         </div>
