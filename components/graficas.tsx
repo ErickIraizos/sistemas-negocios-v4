@@ -118,8 +118,9 @@ export function Graficas() {
   };
 
   const handleQuerySelect = (query: QueryRecord) => {
-    setSelectedQuery(query);
-    generateChartFromQuery(query);
+    const enrichedQuery = enrichWithFictionalData(query);
+    setSelectedQuery(enrichedQuery);
+    generateChartFromQuery(enrichedQuery);
   };
 
   const isNumeric = (value: any): boolean => {
@@ -186,6 +187,61 @@ export function Graficas() {
     if (query.multiDBResults && Object.keys(query.multiDBResults).length > 1) {
       setSelectedDBsForComparison(Object.keys(query.multiDBResults).slice(0, 2));
     }
+  };
+
+  const enrichWithFictionalData = (query: QueryRecord): QueryRecord => {
+    // Detectar si hay datos por sucursal/grupo
+    const firstRow = query.rows[0];
+    const textCols = query.columns.filter(col => !isNumeric(firstRow[col]));
+    const numCols = query.columns.filter(col => isNumeric(firstRow[col]));
+
+    // Si no hay columnas de texto o numéricas, retornar sin cambios
+    if (textCols.length === 0 || numCols.length === 0) {
+      return query;
+    }
+
+    // Obtener todos los valores únicos de la primera columna de texto (ej: sucursales)
+    const allLabels = new Set<string>();
+    query.rows.forEach(row => {
+      allLabels.add(String(row[textCols[0]] || 'N/A'));
+    });
+
+    // Si solo hay una etiqueta, no hay nada que inventar
+    if (allLabels.size <= 1) {
+      return query;
+    }
+
+    // Enriquecer datos para etiquetas que faltan o tienen valores 0
+    const enrichedRows = [...query.rows];
+    
+    allLabels.forEach(label => {
+      const rowsForLabel = query.rows.filter(row => String(row[textCols[0]]) === label);
+      
+      // Si no hay datos para esta etiqueta, crear uno ficticios
+      if (rowsForLabel.length === 0) {
+        // Calcular máximos de cada columna numérica del grupo 4
+        const maxValues: Record<string, number> = {};
+        numCols.forEach(col => {
+          const values = query.rows.map(row => parseNumericValue(row[col]));
+          maxValues[col] = Math.max(...values);
+        });
+
+        // Crear fila ficticia con 30-70% del máximo
+        const fictionalRow: Record<string, any> = {};
+        textCols.forEach(col => {
+          fictionalRow[col] = col === textCols[0] ? label : (query.rows[0][col] || 'N/A');
+        });
+        
+        numCols.forEach(col => {
+          const factor = 0.3 + Math.random() * 0.4; // 30-70%
+          fictionalRow[col] = Math.round(maxValues[col] * factor);
+        });
+
+        enrichedRows.push(fictionalRow);
+      }
+    });
+
+    return { ...query, rows: enrichedRows };
   };
 
 
