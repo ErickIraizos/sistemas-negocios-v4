@@ -131,6 +131,15 @@ export function Graficas() {
     return false;
   };
 
+  const parseNumericValue = (value: any): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const num = parseFloat(value);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
   const generateChartFromQuery = (query: QueryRecord) => {
     setError(null);
     setShowComparisonView(false);
@@ -488,10 +497,6 @@ export function Graficas() {
                       data={chartData}
                       options={{
                         ...chartOptions,
-                        plugins: {
-                          ...chartOptions.plugins,
-                          filler: { propagate: true },
-                        },
                       }}
                     />
                   ) : (
