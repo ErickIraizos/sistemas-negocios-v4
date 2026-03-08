@@ -63,7 +63,12 @@ const chartOptions = {
     },
   },
   scales: {
-    x: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } },
+    x: { 
+      ticks: { color: '#9CA3AF' }, 
+      grid: { color: '#374151' },
+      barPercentage: 0.7,
+      categoryPercentage: 0.8,
+    },
     y: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } },
   },
 };
@@ -590,7 +595,10 @@ export function Graficas() {
                   <span>No hay datos disponibles</span>
                 </div>
               ) : (
-                <div style={{ position: 'relative', height: '400px' }}>
+                <div style={{ 
+                  position: 'relative', 
+                  height: `${Math.max(400, 300 + selectedNumericColumns.length * 80)}px` 
+                }}>
                   {chartType === 'pie' ? (
                     <Pie
                       data={chartData}
