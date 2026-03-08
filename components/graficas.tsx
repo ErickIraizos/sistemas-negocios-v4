@@ -15,6 +15,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 
@@ -27,7 +28,8 @@ ChartJS.register(
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 interface QueryRecord {
@@ -147,20 +149,20 @@ export function Graficas() {
     }
 
     const numCols: string[] = [];
-    let textCol = '';
+    const textCols: string[] = [];
 
     for (let col of columns) {
       const value = firstRow[col];
-      if (!textCol && !isNumeric(value)) {
-        textCol = col;
-      }
       if (isNumeric(value)) {
         numCols.push(col);
+      } else {
+        textCols.push(col);
       }
     }
 
-    if (!textCol) {
-      textCol = columns[0];
+    // Si no hay columnas de texto, usar la primera columna como etiqueta
+    if (textCols.length === 0) {
+      textCols.push(columns[0]);
     }
 
     if (numCols.length === 0) {
@@ -168,9 +170,12 @@ export function Graficas() {
       return;
     }
 
-    setLabelColumn(textCol);
+    setLabelColumn(textCols[0]);
     setNumericColumns(numCols);
     setSelectedNumericColumns([numCols[0]]);
+
+    // Guardar todas las columnas de dimensión para uso posterior
+    sessionStorage.setItem('dimensionColumns', JSON.stringify(textCols));
 
     if (query.multiDBResults && Object.keys(query.multiDBResults).length > 1) {
       setSelectedDBsForComparison(Object.keys(query.multiDBResults).slice(0, 2));
@@ -189,7 +194,18 @@ export function Graficas() {
   const generateChartData = () => {
     if (!selectedQuery || selectedNumericColumns.length === 0) return null;
 
-    const labels = selectedQuery.rows.map((row) => String(row[labelColumn] || 'N/A'));
+    // Obtener todas las columnas de dimensión almacenadas
+    const dimensionCols = JSON.parse(sessionStorage.getItem('dimensionColumns') || '[]') as string[];
+    
+    // Si hay múltiples columnas de dimensión, combinarlas en una etiqueta
+    const labels = selectedQuery.rows.map((row) => {
+      if (dimensionCols.length > 1) {
+        // Combinar múltiples dimensiones con " - "
+        return dimensionCols.map(col => String(row[col] || 'N/A')).join(' - ');
+      } else {
+        return String(row[labelColumn] || 'N/A');
+      }
+    });
 
     const datasets = selectedNumericColumns.map((col, idx) => ({
       label: col,
