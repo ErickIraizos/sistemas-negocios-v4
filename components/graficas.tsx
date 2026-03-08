@@ -190,54 +190,96 @@ export function Graficas() {
   };
 
   const enrichWithFictionalData = (query: QueryRecord): QueryRecord => {
-    // Detectar si hay datos por sucursal/grupo
+    // Detectar si hay datos por sucursal/grupo y categoría
     const firstRow = query.rows[0];
     const textCols = query.columns.filter(col => !isNumeric(firstRow[col]));
     const numCols = query.columns.filter(col => isNumeric(firstRow[col]));
 
-    // Si no hay columnas de texto o numéricas, retornar sin cambios
-    if (textCols.length === 0 || numCols.length === 0) {
+    // Si no hay suficientes columnas de texto, retornar sin cambios
+    if (textCols.length < 2 || numCols.length === 0) {
       return query;
     }
 
-    // Obtener todos los valores únicos de la primera columna de texto (ej: sucursales)
-    const allLabels = new Set<string>();
+    // Obtener todos los grupos (primera columna de texto)
+    const allGroups = new Set<string>();
     query.rows.forEach(row => {
-      allLabels.add(String(row[textCols[0]] || 'N/A'));
+      allGroups.add(String(row[textCols[0]] || 'N/A'));
     });
 
-    // Si solo hay una etiqueta, no hay nada que inventar
-    if (allLabels.size <= 1) {
+    // Si solo hay un grupo, retornar sin cambios
+    if (allGroups.size <= 1) {
       return query;
     }
 
-    // Enriquecer datos para etiquetas que faltan o tienen valores 0
-    const enrichedRows = [...query.rows];
+    // Contar categorías por grupo (segunda columna de texto)
+    const rowsPerGroup: Record<string, any[]> = {};
+    const categoriesPerGroup: Record<string, Set<string>> = {};
     
-    allLabels.forEach(label => {
-      const rowsForLabel = query.rows.filter(row => String(row[textCols[0]]) === label);
-      
-      // Si no hay datos para esta etiqueta, crear uno ficticios
-      if (rowsForLabel.length === 0) {
-        // Calcular máximos de cada columna numérica del grupo 4
+    allGroups.forEach(group => {
+      rowsPerGroup[group] = query.rows.filter(row => String(row[textCols[0]]) === group);
+      categoriesPerGroup[group] = new Set(
+        rowsPerGroup[group].map(row => String(row[textCols[1]] || 'N/A'))
+      );
+    });
+
+    // Encontrar el grupo con más categorías
+    let maxCategories = 0;
+    let referenceGroup = '';
+    Object.entries(categoriesPerGroup).forEach(([group, categories]) => {
+      if (categories.size > maxCategories) {
+        maxCategories = categories.size;
+        referenceGroup = group;
+      }
+    });
+
+    // Si no hay referencia o es muy pequeña, retornar sin cambios
+    if (maxCategories <= 1 || !referenceGroup) {
+      return query;
+    }
+
+    // Obtener todas las categorías del grupo de referencia
+    const referenceCategories = Array.from(categoriesPerGroup[referenceGroup]);
+
+    // Enriquecer cada grupo que tenga menos categorías
+    let enrichedRows = [...query.rows];
+
+    Object.entries(categoriesPerGroup).forEach(([group, categories]) => {
+      if (categories.size < maxCategories) {
+        // Este grupo necesita más datos ficticios
+        const rowsForGroup = rowsPerGroup[group];
+
+        // Calcular máximos de cada columna numérica del grupo de referencia
         const maxValues: Record<string, number> = {};
         numCols.forEach(col => {
-          const values = query.rows.map(row => parseNumericValue(row[col]));
+          const values = rowsPerGroup[referenceGroup].map(row => parseNumericValue(row[col]));
           maxValues[col] = Math.max(...values);
         });
 
-        // Crear fila ficticia con 30-70% del máximo
-        const fictionalRow: Record<string, any> = {};
-        textCols.forEach(col => {
-          fictionalRow[col] = col === textCols[0] ? label : (query.rows[0][col] || 'N/A');
-        });
-        
-        numCols.forEach(col => {
-          const factor = 0.3 + Math.random() * 0.4; // 30-70%
-          fictionalRow[col] = Math.round(maxValues[col] * factor);
-        });
+        // Para cada categoría del grupo de referencia que falte en este grupo
+        referenceCategories.forEach(category => {
+          const exists = rowsForGroup.some(row => String(row[textCols[1]]) === category);
 
-        enrichedRows.push(fictionalRow);
+          if (!exists) {
+            // Crear fila ficticia
+            const fictionalRow: Record<string, any> = {};
+            
+            textCols.forEach((col, idx) => {
+              if (idx === 0) {
+                fictionalRow[col] = group; // Mantener el grupo
+              } else {
+                fictionalRow[col] = category; // Usar la categoría del grupo de referencia
+              }
+            });
+
+            // Generar valores ficticios (30-70% del máximo del grupo de referencia)
+            numCols.forEach(col => {
+              const factor = 0.3 + Math.random() * 0.4; // 30-70%
+              fictionalRow[col] = Math.round(maxValues[col] * factor);
+            });
+
+            enrichedRows.push(fictionalRow);
+          }
+        });
       }
     });
 
