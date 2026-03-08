@@ -60,6 +60,20 @@ const chartOptions = {
       titleColor: '#E5E7EB',
       bodyColor: '#E5E7EB',
       padding: 12,
+      callbacks: {
+        label: function(context: any) {
+          const datasetLabel = context.dataset.label || '';
+          const displayValue = context.parsed.y || context.parsed;
+          const originalData = context.dataset.originalData;
+          const originalValue = originalData ? originalData[context.dataIndex] : displayValue;
+          
+          // Si está normalizado, mostrar ambos valores
+          if (displayValue !== originalValue) {
+            return `${datasetLabel}: ${displayValue} (${originalValue.toLocaleString()})`;
+          }
+          return `${datasetLabel}: ${originalValue.toLocaleString()}`;
+        }
+      }
     },
   },
   scales: {
@@ -84,6 +98,7 @@ export function Graficas() {
   const [labelColumn, setLabelColumn] = useState<string>('');
   const [selectedDBsForComparison, setSelectedDBsForComparison] = useState<string[]>([]);
   const [showComparisonView, setShowComparisonView] = useState(false);
+  const [showNormalizedScale, setShowNormalizedScale] = useState(true);
 
   useEffect(() => {
     loadHistory();
@@ -313,22 +328,49 @@ export function Graficas() {
     return { ...query, rows: enrichedRows };
   };
 
+  const normalizeToScale = (value: number, max: number, min: number = 0): number => {
+    if (max === min) return 5; // Si todos los valores son iguales, retornar 5 (centro)
+    const normalized = ((value - min) / (max - min)) * 9 + 1; // Escala 1-10
+    return Math.round(normalized * 100) / 100; // Redondear a 2 decimales
+  };
 
   const generateChartData = () => {
     if (!selectedQuery || selectedNumericColumns.length === 0) return null;
 
     const labels = selectedQuery.rows.map((row) => String(row[labelColumn] || 'N/A'));
 
-    const datasets = selectedNumericColumns.map((col, idx) => ({
-      label: col,
-      data: selectedQuery.rows.map((row) => parseNumericValue(row[col])),
-      borderColor: COLORS[idx % COLORS.length],
-      backgroundColor: COLORS[idx % COLORS.length],
-      borderWidth: chartType === 'line' ? 2 : 0,
-      tension: 0.4,
-    }));
+    // Calcular max y min para cada columna numérica
+    const dataStats: Record<string, { max: number; min: number; original: number[] }> = {};
+    selectedNumericColumns.forEach(col => {
+      const values = selectedQuery.rows.map((row) => parseNumericValue(row[col]));
+      dataStats[col] = {
+        max: Math.max(...values),
+        min: Math.min(...values),
+        original: values,
+      };
+    });
 
-    return { labels, datasets };
+    const datasets = selectedNumericColumns.map((col, idx) => {
+      const values = selectedQuery.rows.map((row) => parseNumericValue(row[col]));
+      const { max, min, original } = dataStats[col];
+
+      // Normalizar a escala 1-10 si está habilitado
+      const displayValues = showNormalizedScale 
+        ? values.map(v => normalizeToScale(v, max, min))
+        : values;
+
+      return {
+        label: col,
+        data: displayValues,
+        borderColor: COLORS[idx % COLORS.length],
+        backgroundColor: COLORS[idx % COLORS.length],
+        borderWidth: chartType === 'line' ? 2 : 0,
+        tension: 0.4,
+        originalData: original, // Guardar datos originales para tooltips
+      };
+    });
+
+    return { labels, datasets, dataStats };
   };
 
   const generateComparisonData = () => {
@@ -528,6 +570,21 @@ export function Graficas() {
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showNormalizedScale}
+                        onChange={(e) => setShowNormalizedScale(e.target.checked)}
+                        className="w-4 h-4"
+                      />
+                      <div>
+                        <span className="text-white text-sm">Escala Normalizada (1-10)</span>
+                        <p className="text-gray-400 text-xs">Proporcional para mejor comparación</p>
+                      </div>
+                    </label>
                   </div>
                 </CardContent>
               </Card>
