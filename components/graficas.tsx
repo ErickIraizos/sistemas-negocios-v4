@@ -213,7 +213,6 @@ export function Graficas() {
       borderColor: COLORS[idx % COLORS.length],
       backgroundColor: COLORS[idx % COLORS.length],
       borderWidth: chartType === 'line' ? 2 : 0,
-      fill: chartType === 'line' ? false : true,
       tension: 0.4,
     }));
 
