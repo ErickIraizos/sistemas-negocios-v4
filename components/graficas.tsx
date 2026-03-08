@@ -218,9 +218,18 @@ export function Graficas() {
     allGroups.forEach(group => {
       rowsPerGroup[group] = query.rows.filter(row => String(row[textCols[0]]) === group);
       categoriesPerGroup[group] = new Set(
-        rowsPerGroup[group].map(row => String(row[textCols[1]] || 'N/A'))
+        rowsPerGroup[group].map(row => {
+          const cat = String(row[textCols[1]] || 'N/A');
+          // Filtrar categorías vacías o con "-"
+          return (cat && cat !== '-' && cat !== 'N/A') ? cat : 'sin_especificar';
+        })
       );
     });
+
+    console.log("[v0] Groups found:", Array.from(allGroups));
+    console.log("[v0] Categories per group:", Object.fromEntries(
+      Object.entries(categoriesPerGroup).map(([g, cats]) => [g, Array.from(cats)])
+    ));
 
     // Encontrar el grupo con más categorías
     let maxCategories = 0;
@@ -231,6 +240,8 @@ export function Graficas() {
         referenceGroup = group;
       }
     });
+
+    console.log("[v0] Reference group:", referenceGroup, "with", maxCategories, "categories");
 
     // Si no hay referencia o es muy pequeña, retornar sin cambios
     if (maxCategories <= 1 || !referenceGroup) {
@@ -244,6 +255,8 @@ export function Graficas() {
     let enrichedRows = [...query.rows];
 
     Object.entries(categoriesPerGroup).forEach(([group, categories]) => {
+      console.log("[v0] Processing group:", group, "has", categories.size, "categories, max is", maxCategories);
+      
       if (categories.size < maxCategories) {
         // Este grupo necesita más datos ficticios
         const rowsForGroup = rowsPerGroup[group];
@@ -255,11 +268,19 @@ export function Graficas() {
           maxValues[col] = Math.max(...values);
         });
 
+        console.log("[v0] Max values for", group, ":", maxValues);
+
         // Para cada categoría del grupo de referencia que falte en este grupo
         referenceCategories.forEach(category => {
-          const exists = rowsForGroup.some(row => String(row[textCols[1]]) === category);
+          const exists = rowsForGroup.some(row => {
+            const cat = String(row[textCols[1]] || 'N/A');
+            const normalizedCat = (cat && cat !== '-' && cat !== 'N/A') ? cat : 'sin_especificar';
+            return normalizedCat === category;
+          });
 
           if (!exists) {
+            console.log("[v0] Creating fictional row for", group, "-", category);
+            
             // Crear fila ficticia
             const fictionalRow: Record<string, any> = {};
             
@@ -267,7 +288,7 @@ export function Graficas() {
               if (idx === 0) {
                 fictionalRow[col] = group; // Mantener el grupo
               } else {
-                fictionalRow[col] = category; // Usar la categoría del grupo de referencia
+                fictionalRow[col] = category === 'sin_especificar' ? '-' : category;
               }
             });
 
@@ -283,6 +304,7 @@ export function Graficas() {
       }
     });
 
+    console.log("[v0] Enriched rows count:", enrichedRows.length);
     return { ...query, rows: enrichedRows };
   };
 
