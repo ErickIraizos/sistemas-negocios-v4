@@ -118,13 +118,8 @@ export function Graficas() {
   };
 
   const handleQuerySelect = (query: QueryRecord) => {
-    // Enriquecer los datos con datos ficticios si es necesario
-    const enrichedQuery = {
-      ...query,
-      rows: generateFictionalData(query.rows, query.columns),
-    };
-    setSelectedQuery(enrichedQuery);
-    generateChartFromQuery(enrichedQuery);
+    setSelectedQuery(query);
+    generateChartFromQuery(query);
   };
 
   const isNumeric = (value: any): boolean => {
@@ -154,20 +149,20 @@ export function Graficas() {
     }
 
     const numCols: string[] = [];
-    const textCols: string[] = [];
+    let textCol = '';
 
     for (let col of columns) {
       const value = firstRow[col];
+      if (!textCol && !isNumeric(value)) {
+        textCol = col;
+      }
       if (isNumeric(value)) {
         numCols.push(col);
-      } else {
-        textCols.push(col);
       }
     }
 
-    // Si no hay columnas de texto, usar la primera columna como etiqueta
-    if (textCols.length === 0) {
-      textCols.push(columns[0]);
+    if (!textCol) {
+      textCol = columns[0];
     }
 
     if (numCols.length === 0) {
@@ -175,105 +170,20 @@ export function Graficas() {
       return;
     }
 
-    setLabelColumn(textCols[0]);
+    setLabelColumn(textCol);
     setNumericColumns(numCols);
     setSelectedNumericColumns([numCols[0]]);
-
-    // Guardar todas las columnas de dimensión para uso posterior
-    sessionStorage.setItem('dimensionColumns', JSON.stringify(textCols));
 
     if (query.multiDBResults && Object.keys(query.multiDBResults).length > 1) {
       setSelectedDBsForComparison(Object.keys(query.multiDBResults).slice(0, 2));
     }
   };
 
-  const generateFictionalData = (rows: any[], columns: string[]) => {
-    // Detectar si hay múltiples sucursales y si falta alguna en otras DBs
-    const textCols = columns.filter(col => !isNumeric(rows[0]?.[col]));
-    const numCols = columns.filter(col => isNumeric(rows[0]?.[col]));
-    
-    if (textCols.length < 2 || numCols.length === 0) {
-      return rows; // Retornar datos sin modificar si no hay suficientes dimensiones
-    }
-
-    // Obtener todas las sucursales únicas del grupo 4 (primera en la lista)
-    const allSucursales = new Set<string>();
-    rows.forEach(row => {
-      const sucursal = String(row[textCols[0]] || 'N/A');
-      allSucursales.add(sucursal);
-    });
-
-    const enrichedRows = [...rows];
-    
-    // Para cada sucursal en el grupo 4
-    allSucursales.forEach(sucursal => {
-      const rowsForSucursal = enrichedRows.filter(row => String(row[textCols[0]]) === sucursal);
-      
-      // Verificar si hay datos para otras especialidades
-      const especialidades = new Set<string>();
-      rowsForSucursal.forEach(row => {
-        const especialidad = String(row[textCols[1]] || 'N/A');
-        especialidades.add(especialidad);
-      });
-
-      // Si falta alguna especialidad, crear datos ficticios basados en el promedio
-      if (especialidades.size > 0) {
-        const promedios: Record<string, number> = {};
-        
-        // Calcular promedio de cada métrica para esta sucursal
-        numCols.forEach(col => {
-          const valores = rowsForSucursal.map(row => parseNumericValue(row[col]));
-          const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
-          promedios[col] = promedio;
-        });
-
-        // Generar datos ficticios para especialidades que podrían faltar
-        // Usar un 40-70% del promedio para hacerlo más realista
-        especialidades.forEach(especialidad => {
-          const existeEnDatos = rowsForSucursal.some(row => String(row[textCols[1]]) === especialidad);
-          if (!existeEnDatos && Math.random() > 0.5) {
-            const newRow: Record<string, any> = {};
-            textCols.forEach(col => {
-              if (col === textCols[0]) {
-                newRow[col] = sucursal;
-              } else if (col === textCols[1]) {
-                newRow[col] = especialidad;
-              } else {
-                newRow[col] = rows[0][col]; // Copiar otros valores de texto
-              }
-            });
-            
-            // Generar valores ficticios (40-70% del promedio)
-            numCols.forEach(col => {
-              const factor = 0.4 + Math.random() * 0.3; // Entre 0.4 y 0.7
-              newRow[col] = Math.round(promedios[col] * factor);
-            });
-            
-            enrichedRows.push(newRow);
-          }
-        });
-      }
-    });
-
-    return enrichedRows;
-  };
-
 
   const generateChartData = () => {
     if (!selectedQuery || selectedNumericColumns.length === 0) return null;
 
-    // Obtener todas las columnas de dimensión almacenadas
-    const dimensionCols = JSON.parse(sessionStorage.getItem('dimensionColumns') || '[]') as string[];
-    
-    // Si hay múltiples columnas de dimensión, combinarlas en una etiqueta
-    const labels = selectedQuery.rows.map((row) => {
-      if (dimensionCols.length > 1) {
-        // Combinar múltiples dimensiones con " - "
-        return dimensionCols.map(col => String(row[col] || 'N/A')).join(' - ');
-      } else {
-        return String(row[labelColumn] || 'N/A');
-      }
-    });
+    const labels = selectedQuery.rows.map((row) => String(row[labelColumn] || 'N/A'));
 
     const datasets = selectedNumericColumns.map((col, idx) => ({
       label: col,
