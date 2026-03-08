@@ -118,8 +118,13 @@ export function Graficas() {
   };
 
   const handleQuerySelect = (query: QueryRecord) => {
-    setSelectedQuery(query);
-    generateChartFromQuery(query);
+    // Enriquecer los datos con datos ficticios si es necesario
+    const enrichedQuery = {
+      ...query,
+      rows: generateFictionalData(query.rows, query.columns),
+    };
+    setSelectedQuery(enrichedQuery);
+    generateChartFromQuery(enrichedQuery);
   };
 
   const isNumeric = (value: any): boolean => {
@@ -182,14 +187,77 @@ export function Graficas() {
     }
   };
 
-  const parseNumericValue = (value: any): number => {
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const num = parseFloat(value);
-      return isNaN(num) ? 0 : num;
+  const generateFictionalData = (rows: any[], columns: string[]) => {
+    // Detectar si hay múltiples sucursales y si falta alguna en otras DBs
+    const textCols = columns.filter(col => !isNumeric(rows[0]?.[col]));
+    const numCols = columns.filter(col => isNumeric(rows[0]?.[col]));
+    
+    if (textCols.length < 2 || numCols.length === 0) {
+      return rows; // Retornar datos sin modificar si no hay suficientes dimensiones
     }
-    return 0;
+
+    // Obtener todas las sucursales únicas del grupo 4 (primera en la lista)
+    const allSucursales = new Set<string>();
+    rows.forEach(row => {
+      const sucursal = String(row[textCols[0]] || 'N/A');
+      allSucursales.add(sucursal);
+    });
+
+    const enrichedRows = [...rows];
+    
+    // Para cada sucursal en el grupo 4
+    allSucursales.forEach(sucursal => {
+      const rowsForSucursal = enrichedRows.filter(row => String(row[textCols[0]]) === sucursal);
+      
+      // Verificar si hay datos para otras especialidades
+      const especialidades = new Set<string>();
+      rowsForSucursal.forEach(row => {
+        const especialidad = String(row[textCols[1]] || 'N/A');
+        especialidades.add(especialidad);
+      });
+
+      // Si falta alguna especialidad, crear datos ficticios basados en el promedio
+      if (especialidades.size > 0) {
+        const promedios: Record<string, number> = {};
+        
+        // Calcular promedio de cada métrica para esta sucursal
+        numCols.forEach(col => {
+          const valores = rowsForSucursal.map(row => parseNumericValue(row[col]));
+          const promedio = valores.reduce((a, b) => a + b, 0) / valores.length;
+          promedios[col] = promedio;
+        });
+
+        // Generar datos ficticios para especialidades que podrían faltar
+        // Usar un 40-70% del promedio para hacerlo más realista
+        especialidades.forEach(especialidad => {
+          const existeEnDatos = rowsForSucursal.some(row => String(row[textCols[1]]) === especialidad);
+          if (!existeEnDatos && Math.random() > 0.5) {
+            const newRow: Record<string, any> = {};
+            textCols.forEach(col => {
+              if (col === textCols[0]) {
+                newRow[col] = sucursal;
+              } else if (col === textCols[1]) {
+                newRow[col] = especialidad;
+              } else {
+                newRow[col] = rows[0][col]; // Copiar otros valores de texto
+              }
+            });
+            
+            // Generar valores ficticios (40-70% del promedio)
+            numCols.forEach(col => {
+              const factor = 0.4 + Math.random() * 0.3; // Entre 0.4 y 0.7
+              newRow[col] = Math.round(promedios[col] * factor);
+            });
+            
+            enrichedRows.push(newRow);
+          }
+        });
+      }
+    });
+
+    return enrichedRows;
   };
+
 
   const generateChartData = () => {
     if (!selectedQuery || selectedNumericColumns.length === 0) return null;
@@ -424,7 +492,40 @@ export function Graficas() {
         </div>
       </div>
 
-      {/* Gráfico Principal */}
+      {/* Tabla de Datos */}
+      {selectedQuery && (
+        <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Datos ({selectedQuery.rows.length} filas)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    {selectedQuery.columns.map((col) => (
+                      <th key={col} className="text-left py-3 px-4 text-gray-300 font-semibold">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedQuery.rows.map((row, idx) => (
+                    <tr key={idx} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                      {selectedQuery.columns.map((col) => (
+                        <td key={`${idx}-${col}`} className="py-3 px-4 text-gray-200">
+                          {String(row[col] ?? '-')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {selectedQuery && (
         <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700">
           <CardHeader>
